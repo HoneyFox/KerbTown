@@ -5,13 +5,13 @@ using System.Runtime.InteropServices;
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("Kerbtown")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyTitle("KerbTown")]
+[assembly: AssemblyDescription("Allows placing of static objects in the KSP game universe")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("Kerbtown")]
-[assembly: AssemblyCopyright("Copyright ©  2013")]
-[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCompany("Hubs' Electrical")]
+[assembly: AssemblyProduct("KerbTown")]
+[assembly: AssemblyCopyright("Copyright © Ryan Irecki 2013")]
+[assembly: AssemblyTrademark("All trademarks are copyright to their respective owners.")]
 [assembly: AssemblyCulture("")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
@@ -32,5 +32,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.01.*")]
-[assembly: AssemblyFileVersion("0.01.*")]
+[assembly: AssemblyVersion("1.0.*")]
+[assembly: AssemblyFileVersion("0.01.0.0")]
