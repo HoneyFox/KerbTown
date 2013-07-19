@@ -250,7 +250,13 @@ namespace Kerbtown
 
             sObject.StaticGameObject = staticGameObject;
 
-            staticGameObject.SetActive(true);
+            // Added not for collision support but to reduce performance cost when moving static objects around.
+            if (staticGameObject.GetComponent<Rigidbody>() == null)
+            {
+                var rigidBody = staticGameObject.AddComponent<Rigidbody>();
+                rigidBody.useGravity = false;
+                rigidBody.isKinematic = true;
+            }
 
             staticGameObject.transform.parent = celestialPQS.transform;
 
@@ -281,6 +287,7 @@ namespace Kerbtown
 
             sObject.PQSCityComponent = myCity;
 
+            staticGameObject.SetActive(true);
             //AddModuleComponents(staticGameObject);
         }
 
@@ -370,6 +377,11 @@ namespace Kerbtown
             GUI.DragWindow(new Rect(0, 0, 10000, 10000));
         }
 
+        private string xPosition = "";
+        private string yPosition = "";
+        private string zPosition = "";
+        private string rPosition = "";
+
         private void DrawPositioningControls()
         {
             //if (GUI.Button(new Rect(20, 90, 180, 22), "Pick-up selected object."))
@@ -410,13 +422,8 @@ namespace Kerbtown
                 reorient = true;
             }
 
-            string xPosition = GUI.TextField(new Rect(240, 25, 140, 22),
-                _currentSelectedObject.RadPosition.x.ToString(CultureInfo.InvariantCulture));
-
-            float floatValX = 0;
-
-            if (float.TryParse(xPosition, out floatValX)) _currentSelectedObject.RadPosition.x = floatValX;
-
+            xPosition = GUI.TextField(new Rect(240, 25, 140, 22), xPosition);
+            
             #endregion
 
             #region Z Position
@@ -443,12 +450,7 @@ namespace Kerbtown
                 reorient = true;
             }
 
-            string zPosition = GUI.TextField(new Rect(240, 75, 140, 22),
-                _currentSelectedObject.RadPosition.z.ToString(CultureInfo.InvariantCulture));
-
-            float floatValZ = 0;
-
-            if (float.TryParse(zPosition, out floatValZ)) _currentSelectedObject.RadPosition.z = floatValZ;
+            zPosition = GUI.TextField(new Rect(240, 75, 140, 22), zPosition);
 
             #endregion
 
@@ -477,13 +479,8 @@ namespace Kerbtown
                 reorient = true;
             }
 
-            string yPosition = GUI.TextField(new Rect(240, 50, 140, 22),
-                _currentSelectedObject.RadPosition.y.ToString(CultureInfo.InvariantCulture));
-
-            float floatValY = 0;
-
-            if (float.TryParse(yPosition, out floatValY)) _currentSelectedObject.RadPosition.y = floatValY;
-
+            yPosition = GUI.TextField(new Rect(240, 50, 140, 22), yPosition);
+            
             #endregion
 
             #region R Offset
@@ -511,18 +508,21 @@ namespace Kerbtown
                 reorient = true;
             }
 
-            string rPosition = GUI.TextField(new Rect(240, 100, 140, 22),
-                _currentSelectedObject.RadOffset.ToString(CultureInfo.InvariantCulture));
-
-            float floatValR = 0;
-
-            if (float.TryParse(rPosition, out floatValR)) _currentSelectedObject.RadOffset = floatValR;
-
+            rPosition = GUI.TextField(new Rect(240, 100, 140, 22), rPosition);
+            
             #endregion
 
             GUI.backgroundColor = Color.yellow;
             if (GUI.Button(new Rect(310, 125, 70, 22), "Update ^"))
+            {
+                float floatVal = 0;
+                if (float.TryParse(xPosition, out floatVal)) _currentSelectedObject.RadPosition.x = floatVal;
+                if (float.TryParse(zPosition, out floatVal)) _currentSelectedObject.RadPosition.z = floatVal;
+                if (float.TryParse(yPosition, out floatVal)) _currentSelectedObject.RadPosition.y = floatVal;
+                if (float.TryParse(rPosition, out floatVal)) _currentSelectedObject.RadOffset = floatVal;
+
                 reorient = true;
+            }
 
             #region Orientation
 
@@ -577,6 +577,11 @@ namespace Kerbtown
 
             if (reorient)
             {
+                xPosition = _currentSelectedObject.RadPosition.x.ToString(CultureInfo.InvariantCulture);
+                yPosition = _currentSelectedObject.RadPosition.y.ToString(CultureInfo.InvariantCulture);
+                zPosition = _currentSelectedObject.RadPosition.z.ToString(CultureInfo.InvariantCulture);
+                rPosition = _currentSelectedObject.RadOffset.ToString(CultureInfo.InvariantCulture);
+
                 _currentSelectedObject.Latitude = GetLatitude(_currentCelestialObj, _currentSelectedObject.RadPosition);
                 _currentSelectedObject.Longitude = GetLongitude(_currentCelestialObj, _currentSelectedObject.RadPosition);
                 _currentSelectedObject.Reorientate();
@@ -673,13 +678,13 @@ namespace Kerbtown
                 InstantiateStatic(_currentCelestialObj.PQSComponent, newObject);
 
                 // Remove previously highlighted object if there is one.
-                if (_currentSelectedObject != null) _currentSelectedObject.Highlight(false);
+                if (_currentSelectedObject != null) _currentSelectedObject.Manipulate(false);
 
                 _currentObjectID = newObject.ObjectID;
                 _currentSelectedObject = newObject;
 
                 // Highlight new selected object.
-                if (_currentSelectedObject != null) _currentSelectedObject.Highlight(true);
+                if (_currentSelectedObject != null) _currentSelectedObject.Manipulate(true);
             }
 
             GUI.backgroundColor = new Color(0.5f, 0.5f, 0.5f);
@@ -713,7 +718,7 @@ namespace Kerbtown
                         {
                             // Deselect
                             if (_currentSelectedObject != null)
-                                _currentSelectedObject.Highlight(false);
+                                _currentSelectedObject.Manipulate(false);
                             
                             _currentObjectID = "";
                             _currentSelectedObject = null;
@@ -721,11 +726,11 @@ namespace Kerbtown
                         else
                         {
                             if (_currentSelectedObject != null) 
-                                _currentSelectedObject.Highlight(false);
+                                _currentSelectedObject.Manipulate(false);
 
                             _currentObjectID = sObject.ObjectID; // Select
                             _currentSelectedObject = sObject;
-                            _currentSelectedObject.Highlight(true);
+                            _currentSelectedObject.Manipulate(true);
                         }
                     }
                     i++;
@@ -779,7 +784,7 @@ namespace Kerbtown
             public readonly string ConfigURL;
             public readonly string ModelUrl;
             public readonly string NameID;
-            public readonly string ObjectID;
+            public readonly string ObjectID; 
             public readonly float VisRange;
 
             public string CelestialBodyName = "";
@@ -796,12 +801,13 @@ namespace Kerbtown
             public GameObject StaticGameObject;
 
             private List<Renderer> _rendererComponents;
+            private List<Collider> _colliderComponents; 
 
-            public void Highlight(bool highlightActive)
+            public void Manipulate(bool inactive)
             {
-                Highlight(highlightActive, XKCDColors.BlueyGrey);
+                Manipulate(inactive, XKCDColors.BlueyGrey);
             }
-            public void Highlight(bool highlightActive, Color hColor)
+            public void Manipulate(bool inactive, Color highlightColor)
             {
                 if (StaticGameObject == null)
                 {
@@ -809,6 +815,28 @@ namespace Kerbtown
                     return;
                 }
 
+                #region Colliders
+                if (_colliderComponents == null || _colliderComponents.Count == 0)
+                {
+                    var colliderList = StaticGameObject.GetComponentsInChildren<Collider>();
+
+                    if (colliderList.Length > 0)
+                    {
+                        _colliderComponents = new List<Collider>(colliderList);
+                    }
+                    else Extensions.LogWarning(NameID + " has no collider components.");
+                }
+
+                if (_colliderComponents != null && _colliderComponents.Count > 0)
+                {
+                    foreach (var collider in _colliderComponents)
+                    {
+                        collider.enabled = !inactive;
+                    }
+                }
+                #endregion
+
+                #region Highlight
                 if ((_rendererComponents == null || _rendererComponents.Count == 0))
                 {
                     var rendererList = StaticGameObject.GetComponentsInChildren<Renderer>();
@@ -820,14 +848,15 @@ namespace Kerbtown
                     _rendererComponents = new List<Renderer>(rendererList);
                 }
 
-                if (!highlightActive)
-                    hColor = new Color(0, 0, 0, 0);
+                if (!inactive)
+                    highlightColor = new Color(0, 0, 0, 0);
 
                 foreach (var renderer in _rendererComponents)
                 {
                     renderer.material.SetFloat("_RimFalloff", 1.8f);
-                    renderer.material.SetColor("_RimColor", hColor);
+                    renderer.material.SetColor("_RimColor", highlightColor);
                 }
+                #endregion
             }
 
             public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
@@ -858,14 +887,12 @@ namespace Kerbtown
 
             public void Reorientate()
             {
-                if (PQSCityComponent != null)
-                {
-                    PQSCityComponent.repositionRadial = RadPosition;
-                    PQSCityComponent.repositionRadiusOffset = RadOffset;
-                    PQSCityComponent.reorientFinalAngle = RotAngle;
-                    PQSCityComponent.reorientInitialUp = Orientation;
-                    PQSCityComponent.Orientate();
-                }
+                if (PQSCityComponent == null) return;
+                PQSCityComponent.repositionRadial = RadPosition;
+                PQSCityComponent.repositionRadiusOffset = RadOffset;
+                PQSCityComponent.reorientFinalAngle = RotAngle;
+                PQSCityComponent.reorientInitialUp = Orientation;
+                PQSCityComponent.Orientate();
             }
 
             public override string ToString()
