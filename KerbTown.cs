@@ -672,8 +672,14 @@ namespace Kerbtown
 
                 InstantiateStatic(_currentCelestialObj.PQSComponent, newObject);
 
+                // Remove previously highlighted object if there is one.
+                if (_currentSelectedObject != null) _currentSelectedObject.Highlight(false);
+
                 _currentObjectID = newObject.ObjectID;
                 _currentSelectedObject = newObject;
+
+                // Highlight new selected object.
+                if (_currentSelectedObject != null) _currentSelectedObject.Highlight(true);
             }
 
             GUI.backgroundColor = new Color(0.5f, 0.5f, 0.5f);
@@ -703,8 +709,24 @@ namespace Kerbtown
                     if (GUI.Button(new Rect(5, (i*25) + 5, 550, 22),
                         string.Format("{0} (ID: {1})", sObject.ModelUrl, sObject.ObjectID)))
                     {
-                        _currentObjectID = itemMatches ? "" : sObject.ObjectID; // Select / Deselect
-                        _currentSelectedObject = itemMatches ? null : sObject;
+                        if (itemMatches)
+                        {
+                            // Deselect
+                            if (_currentSelectedObject != null)
+                                _currentSelectedObject.Highlight(false);
+                            
+                            _currentObjectID = "";
+                            _currentSelectedObject = null;
+                        }
+                        else
+                        {
+                            if (_currentSelectedObject != null) 
+                                _currentSelectedObject.Highlight(false);
+
+                            _currentObjectID = sObject.ObjectID; // Select
+                            _currentSelectedObject = sObject;
+                            _currentSelectedObject.Highlight(true);
+                        }
                     }
                     i++;
                 }
@@ -773,6 +795,40 @@ namespace Kerbtown
             public float RotAngle;
             public GameObject StaticGameObject;
 
+            private List<Renderer> _rendererComponents;
+
+            public void Highlight(bool highlightActive)
+            {
+                Highlight(highlightActive, XKCDColors.BlueyGrey);
+            }
+            public void Highlight(bool highlightActive, Color hColor)
+            {
+                if (StaticGameObject == null)
+                {
+                    Extensions.LogWarning(NameID + " has no GameObject attached.");
+                    return;
+                }
+
+                if ((_rendererComponents == null || _rendererComponents.Count == 0))
+                {
+                    var rendererList = StaticGameObject.GetComponentsInChildren<Renderer>();
+                    if (rendererList.Length == 0)
+                    {
+                        Extensions.LogWarning(NameID + " has no renderer components.");
+                        return;
+                    }
+                    _rendererComponents = new List<Renderer>(rendererList);
+                }
+
+                if (!highlightActive)
+                    hColor = new Color(0, 0, 0, 0);
+
+                foreach (var renderer in _rendererComponents)
+                {
+                    renderer.material.SetFloat("_RimFalloff", 1.8f);
+                    renderer.material.SetColor("_RimColor", hColor);
+                }
+            }
 
             public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
                 Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
