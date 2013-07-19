@@ -38,7 +38,7 @@ namespace Kerbtown
 
         private bool _availAssetsVisible = true;
         private bool _currAssetsVisible;
-        private bool _mainWindowVisible = true;
+        private bool _mainWindowVisible = false;
         private bool _selectedWindowVisible = true;
 
         #endregion
