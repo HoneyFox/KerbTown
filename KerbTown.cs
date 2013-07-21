@@ -314,7 +314,12 @@ namespace Kerbtown
 
         private static void SetLayerRecursively(GameObject staticGameObject, int newLayerNumber)
         {
-            staticGameObject.layer = newLayerNumber;
+            // Only set to layer 15 if the collider is not a trigger.
+            if ((staticGameObject.collider != null && staticGameObject.collider.isTrigger) ||
+                staticGameObject.collider == null)
+            {
+                staticGameObject.layer = newLayerNumber;
+            }
 
             foreach (Transform child in staticGameObject.transform)
             {
