@@ -1,4 +1,9 @@
-﻿using System;
+﻿/* LICENSE
+ * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
+ * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ */
+
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -7,7 +12,6 @@ using System.Linq;
 using Kerbtown.EEComponents;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
-using Random = UnityEngine.Random;
 
 namespace Kerbtown
 {
