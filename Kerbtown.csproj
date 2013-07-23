@@ -48,7 +48,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EEComponents\MushroomCave.cs" />
-    <Compile Include="KtGui.cs" />
     <Compile Include="KerbTown.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
