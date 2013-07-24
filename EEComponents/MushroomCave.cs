@@ -102,7 +102,19 @@ namespace Kerbtown.EEComponents
             rb.isKinematic = false; // redundant
             rb.AddForce(Vector3.up*0.01f);
 
+            StartCoroutine(RemoveRigidBodyPhysicsOnSleep(PlankGameObject));
+
             Destroy(this);
+        }
+
+        private IEnumerator RemoveRigidBodyPhysicsOnSleep(GameObject plankGameObject)
+        {
+            while (!rigidbody.IsSleeping())
+            {
+                yield return null;
+            }
+
+            rigidbody.isKinematic = true;
         }
     }
 }

@@ -49,6 +49,8 @@
   <ItemGroup>
     <Compile Include="EEComponents\MushroomCave.cs" />
     <Compile Include="KerbTown.cs" />
+    <Compile Include="KerbTownGUI.cs" />
+    <Compile Include="PQSCityEx.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
