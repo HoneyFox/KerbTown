@@ -12,6 +12,7 @@ using System.Linq;
 using Kerbtown.EEComponents;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
+using Random = UnityEngine.Random;
 
 namespace Kerbtown
 {
@@ -186,26 +187,17 @@ namespace Kerbtown
             return Vector3.zero;
         }
 
-        private static double GetLongitude(CelestialObject celestialObject, Vector3d radialPosition)
+        private static double GetLongitude(Vector3d radialPosition)
         {
-            if (celestialObject != null)
-            {
-                return celestialObject.CelestialBodyComponent.GetLongitude(
-                    celestialObject.PQSComponent.GetWorldPosition(radialPosition));
-            }
-            Extensions.LogWarning("Celestial Object is null. - GetLongitude");
-            return 0.0;
+            Vector3d norm = radialPosition.normalized;
+            double longitude = Math.Atan2(norm.z, norm.x)*57.295780181884766f + 180;
+            return (!double.IsNaN(longitude) ? longitude : 0.0);
         }
 
-        private static double GetLatitude(CelestialObject celestialObject, Vector3d radialPosition)
+        private static double GetLatitude(Vector3d radialPosition)
         {
-            if (celestialObject != null)
-            {
-                return celestialObject.CelestialBodyComponent.GetLatitude(
-                    celestialObject.PQSComponent.GetWorldPosition(radialPosition));
-            }
-            Extensions.LogWarning("Celestial Object is null. - GetLatitude");
-            return 0.0;
+            double latitude = Math.Asin(radialPosition.normalized.y)*57.295780181884766;
+            return (!double.IsNaN(latitude) ? latitude : 0.0);
         }
 
         private void GenerateModelLists()
@@ -279,7 +271,9 @@ namespace Kerbtown
             {
                 radialPosition =
                     _currentCelestialObj.CelestialBodyComponent.transform.InverseTransformPoint(
-                        FlightGlobals.ActiveVessel.GetWorldPos3D());
+                        FlightGlobals.ActiveVessel.transform.position);
+
+                //radialPosition =celestialPQS.GetRelativePosition(FlightGlobals.ActiveVessel.transform.position);
 
                 sObject.RadPosition = radialPosition;
             }
@@ -290,8 +284,8 @@ namespace Kerbtown
                 sObject.Orientation = orientDirection;
             }
 
-            sObject.Latitude = GetLatitude(_currentCelestialObj, radialPosition);
-            sObject.Longitude = GetLongitude(_currentCelestialObj, radialPosition);
+            sObject.Latitude = GetLatitude(radialPosition);
+            sObject.Longitude = GetLongitude(radialPosition);
 
             GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl);
 
@@ -312,8 +306,7 @@ namespace Kerbtown
             _myLodRange = new PQSCity.LODRange
                           {
                               renderers = new[] {staticGameObject},
-                              objects = new GameObject[0],
-                              isActive = true,
+                              objects = new[] {staticGameObject},
                               visibleRange = visibilityRange
                           };
 
@@ -433,7 +426,7 @@ namespace Kerbtown
             // Only set to layer 'newLayerNumber' if the collider is not a trigger.
             if ((staticGameObject.collider != null &&
                  staticGameObject.collider.enabled &&
-                 !staticGameObject.collider.isTrigger) || staticGameObject.collider==null)
+                 !staticGameObject.collider.isTrigger) || staticGameObject.collider == null)
             {
                 staticGameObject.layer = newLayerNumber;
             }
@@ -446,12 +439,9 @@ namespace Kerbtown
 
         private static CelestialObject GetCelestialObject(string celestialName)
         {
-            return (from GameObject gameObjectInScene in FindSceneObjectsOfType(typeof (GameObject))
-                from child in gameObjectInScene.GetComponentsInChildren<PQS>()
-                where child.name == celestialName
-                select new CelestialObject(gameObjectInScene)).FirstOrDefault();
+            return new CelestialObject(FlightGlobals.ActiveVessel.mainBody.gameObject);
         }
-        
+
         private StaticObject GetStaticObjectFromID(string objectID)
         {
             return _instancedList[_currentModelUrl].FirstOrDefault(obFind => obFind.ObjectID == objectID);
@@ -541,7 +531,8 @@ namespace Kerbtown
 
                 if (string.IsNullOrEmpty(ObjectID))
                     ObjectID = (visibilityRange + rotationAngle + radiusOffset + objectOrientation.magnitude +
-                                radialPosition.x + radialPosition.y + radialPosition.z).ToString("N2");
+                                radialPosition.x + radialPosition.y + radialPosition.z +
+                                Random.Range(0f, 1000000f)).ToString("N2");
 
                 NameID = string.Format("{0} ({1})", modelUrl.Substring(modelUrl.LastIndexOf('/') + 1), ObjectID);
             }

@@ -44,25 +44,26 @@ namespace Kerbtown
             if (!_mainWindowVisible)
                 return;
 
+            // Main Window
             _mainWindowRect = GUI.Window(0x8100, _mainWindowRect, DrawMainWindow, "KerbTown Editor");
+            
+            // Selected Object Window
+            GUI.Window(0x8103,
+                new Rect(_mainWindowRect.x + 5, _mainWindowRect.y + _mainWindowRect.height + 5, 400,
+                    _currentSelectedObject != null ? 150 : 50), DrawSelectedWindow, "Selected Object Information");
 
+            // Asset List window
             if (_availAssetsVisible)
                 _assetListRect = GUI.Window(0x8101, _assetListRect, DrawAvailAssetWindow, "Available Static Assets List");
 
+            // Current objects window
             if (_currAssetsVisible)
             {
                 _currAssetListRect = GUI.Window(0x8102, _currAssetListRect, DrawCurrAssetWindow,
                     "Existing Static Assets List");
             }
-
-            if (_selectedWindowVisible)
-            {
-                GUI.Window(0x8103,
-                    new Rect(_mainWindowRect.x + 5, _mainWindowRect.y + _mainWindowRect.height + 5, 400,
-                        _currentSelectedObject != null ? 150 : 50), DrawSelectedWindow, "Selected Object Information");
-            }
         }
-
+           
         private void DrawMainWindow(int windowID)
         {
             GUI.Label(new Rect(10, 20, 100, 22), "Asset Lists");
@@ -288,8 +289,8 @@ namespace Kerbtown
                 _zPosition = _currentSelectedObject.RadPosition.z.ToString(CultureInfo.InvariantCulture);
                 _rPosition = _currentSelectedObject.RadOffset.ToString(CultureInfo.InvariantCulture);
 
-                _currentSelectedObject.Latitude = GetLatitude(_currentCelestialObj, _currentSelectedObject.RadPosition);
-                _currentSelectedObject.Longitude = GetLongitude(_currentCelestialObj, _currentSelectedObject.RadPosition);
+                _currentSelectedObject.Latitude = GetLatitude(_currentSelectedObject.RadPosition);
+                _currentSelectedObject.Longitude = GetLongitude(_currentSelectedObject.RadPosition);
                 _currentSelectedObject.Reorientate();
             }
 
@@ -366,8 +367,12 @@ namespace Kerbtown
             GUI.backgroundColor = new Color(0.0f, _currentModelUrl != "" ? 0.7f : 0.0f, 0.0f);
             if (GUI.Button(new Rect(480, 330, 100, 30), "Create") && _currentModelUrl != "")
             {
+                // Clear old position info.
+                _xPosition = _rPosition = _yPosition = _zPosition = "";
+
+                // todo: remove old debug code and start using activevessel references.
                 // Set the current celestial object. (Needs to be set before GetDefaultStaticObject).
-                _currentBodyName = FlightGlobals.currentMainBody.bodyName;
+                _currentBodyName = FlightGlobals.ActiveVessel.mainBody.bodyName;
                 _currentCelestialObj = GetCelestialObject(_currentBodyName);
 
                 StaticObject newObject = GetDefaultStaticObject(_currentModelUrl, _currentConfigUrl);
