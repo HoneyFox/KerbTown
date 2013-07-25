@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using Kerbtown.EEComponents;
+using Kerbtown.NativeModules;
 using UnityEngine;
 using Debug = UnityEngine.Debug;
 using Random = UnityEngine.Random;
@@ -345,38 +346,82 @@ namespace Kerbtown
             }
         }
 
-        private static Type AddModule(ConfigNode configNode)
+        private static void AddModule(ConfigNode configNode, GameObject staticGameObject)
         {
             string namespaceName = configNode.GetValue("namespace");
             string className = configNode.GetValue("name");
 
-            if (string.IsNullOrEmpty(className))
+            if (string.IsNullOrEmpty(namespaceName) || string.IsNullOrEmpty(className))
             {
                 Extensions.LogError(
-                    "Could not add a module to the static object because the node has no name parameter.");
-                return null;
+                    string.Format(
+                        "Could not add a module to the static object because the node has no name{0} parameter.",
+                        string.IsNullOrEmpty(namespaceName) ? "space" : ""));
+                return;
             }
 
-            if (string.IsNullOrEmpty(namespaceName))
+            if (namespaceName == "KerbTown")
             {
-                Extensions.LogError(
-                    "Could not add a module to the static object because the node has no namespace parameter.");
-                return null;
+                AddNativeComponent(staticGameObject, configNode, className);
+                return;
             }
 
-            Type moduleClass = AssemblyLoader.loadedAssemblies.SelectMany(asm => asm.assembly.GetTypes())
-                .FirstOrDefault(t => t.Namespace == namespaceName && t.Name == className);
+            Type moduleClass =
+                AssemblyLoader.loadedAssemblies.SelectMany(asm => asm.assembly.GetTypes())
+                    .FirstOrDefault(t => t.Namespace == namespaceName && t.Name == className);
 
-            if (moduleClass != null)
-                return moduleClass;
+            if (moduleClass == null)
+            {
+                Extensions.LogError("Could not obtain module of type \"" + namespaceName + "." + className +
+                                    "\" from AssemblyLoader.");
+                return;
+            }
 
-            Extensions.LogError("Could not obtain module of type \"" + className + "\" from AssemblyLoader.");
-            return null;
+            if (staticGameObject.AddComponent(moduleClass) == null)
+            {
+                Extensions.LogError("Could not add the obtained module \"" + moduleClass.Name +
+                                    "\" to the static game object.");
+            }
         }
 
-        private void AddNativeComponent(GameObject staticGameObject, Type classType)
+        private static void AddNativeComponent(GameObject staticGameObject, Type classType)
         {
             staticGameObject.AddComponent(classType);
+        }
+
+        private static void AddNativeComponent(GameObject staticGameObject, ConfigNode configNode, string className)
+        {
+            string objectName = configNode.GetValue("collider");
+            string animName = configNode.GetValue("animationName");
+
+            switch (className)
+            {
+                case "AnimateOnCollision":
+                case "AnimateOnClick":
+                    bool shouldHighlight;
+                    float animationSpeed;
+
+                    var genericAnimationModule = staticGameObject.AddComponent<GenericAnimation>();
+
+                    if (bool.TryParse(configNode.GetValue("HighlightOnHover"), out shouldHighlight))
+                        genericAnimationModule.HighlightOnHover = shouldHighlight;
+
+                    if (float.TryParse(configNode.GetValue("animationSpeed"), out animationSpeed))
+                        genericAnimationModule.AnimationSpeed = animationSpeed;
+
+                    genericAnimationModule.ClassName = className;
+                    genericAnimationModule.AnimationName = animName;
+                    genericAnimationModule.ObjectName = objectName;
+
+                    genericAnimationModule.Setup();
+                    break;
+
+                default:
+                    Extensions.LogWarning("KerbTown." + className + " does not exist or is not accessible.");
+                    Extensions.LogWarning(
+                        "The 'name' parameter should be either: 'AnimateOnCollision' or 'AnimateOnClick'.");
+                    break;
+            }
         }
 
         private void AddModuleComponents(GameObject staticGameObject, string rootNodeUrl)
@@ -403,12 +448,7 @@ namespace Kerbtown
                 switch (nodeType)
                 {
                     case 0:
-                        Type sModule = AddModule(currentNode);
-                        if (sModule == null)
-                            continue;
-
-                        if (staticGameObject.AddComponent(sModule) == null)
-                            Extensions.LogError("Could not add module from type of \"" + sModule.Name + "\"");
+                        AddModule(currentNode, staticGameObject);
                         break;
 
                     case 1:
