@@ -44,7 +44,7 @@ namespace Kerbtown.NativeModules
                     clickComponent.AnimationComponent = animationComponent;
                     clickComponent.AnimationName = AnimationName;
                     clickComponent.HighlightOnMouseOver = HighlightOnHover;
-
+                    
                     break;
 
                 case "AnimateOnCollision":
@@ -83,7 +83,7 @@ namespace Kerbtown.NativeModules
 
             AnimationComponent[AnimationName].speed = _atStart ? 1 : -1;
             AnimationComponent[AnimationName].normalizedTime = _atStart ? 0 : 1;
-
+            
             AnimationComponent.Play(AnimationName);
 
             yield return new WaitForSeconds(AnimationComponent[AnimationName].length);
@@ -95,12 +95,14 @@ namespace Kerbtown.NativeModules
 
         private void OnMouseEnter()
         {
-            Highlight(gameObject, true);
+            if (HighlightOnMouseOver)
+                Highlight(gameObject, true);
         }
 
         private void OnMouseExit()
         {
-            Highlight(gameObject, false);
+            if (HighlightOnMouseOver)
+                Highlight(gameObject, false);
         }
 
         public void Highlight(GameObject sgameObject, bool highlightActive)

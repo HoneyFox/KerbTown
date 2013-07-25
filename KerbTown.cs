@@ -296,14 +296,6 @@ namespace Kerbtown
             // Set the parent object to the celestial component's GameObject.
             staticGameObject.transform.parent = celestialPQS.transform;
 
-            // Added not for collision support but to reduce performance cost when moving static objects around.
-            if (staticGameObject.GetComponent<Rigidbody>() == null)
-            {
-                var rigidBody = staticGameObject.AddComponent<Rigidbody>();
-                rigidBody.useGravity = false; // Todo remove redundant code and test.
-                rigidBody.isKinematic = true;
-            }
-
             _myLodRange = new PQSCity.LODRange
                           {
                               renderers = new[] {staticGameObject},
@@ -439,7 +431,7 @@ namespace Kerbtown
                 name = currentNode.name;
                 if (name == null) continue;
 
-                var moduleTypes = new Dictionary<string, int> {{"MODULE", 0}, {"RESOURCE", 1}};
+                var moduleTypes = new Dictionary<string, int> {{"MODULE", 0}, {"RESOURCE", 1}, {"RIGIDBODY", 2}};
 
                 int nodeType;
                 if (!moduleTypes.TryGetValue(name, out nodeType))
@@ -447,12 +439,79 @@ namespace Kerbtown
 
                 switch (nodeType)
                 {
-                    case 0:
+                    case 0: // Module
                         AddModule(currentNode, staticGameObject);
                         break;
 
-                    case 1:
+                    case 1: // Resource
                         //PartResource partResource = part.AddResource(currentNode);
+                        break;
+
+                    case 2: // Rigidbody
+                        string objectName = currentNode.GetValue("name");
+                        if (string.IsNullOrEmpty(objectName))
+                        {
+                            Extensions.LogError(
+                                "The 'name' parameter is empty. You must specify the GameObject name for a Rigidbody component to be added.");
+                            continue;
+                        }
+
+                        float fVal;
+                        float rbMass = 1f;
+                        float rbDrag = 0f;
+                        float rbAngularDrag = 0.05f;
+                        bool rbUseGravity;
+                        bool rbIsKinematic;
+                        RigidbodyInterpolation rbInterpolation;
+                        CollisionDetectionMode rbCollisionDetectionMode;
+
+                        if (float.TryParse(currentNode.GetValue("mass"), out fVal))
+                            rbMass = fVal;
+
+                        if (float.TryParse(currentNode.GetValue("drag"), out fVal))
+                            rbDrag = fVal;
+
+                        if (float.TryParse(currentNode.GetValue("angularDrag"), out fVal))
+                            rbAngularDrag = fVal;
+
+                        if (!bool.TryParse(currentNode.GetValue("useGravity"), out rbUseGravity))
+                            rbUseGravity = false; // Failed, set default.
+
+                        if (!bool.TryParse(currentNode.GetValue("isKinematic"), out rbIsKinematic))
+                            rbIsKinematic = true; // Failed, set default.
+
+                        switch (currentNode.GetValue("interpolationMode"))
+                        {
+                            case "Extrapolate":
+                                rbInterpolation = RigidbodyInterpolation.Extrapolate;
+
+                                break;
+                            case "Interpolate":
+                                rbInterpolation = RigidbodyInterpolation.Interpolate;
+                                break;
+
+                            default:
+                                rbInterpolation = RigidbodyInterpolation.None;
+                                break;
+                        }
+
+                        switch (currentNode.GetValue("collisionDetectionMode"))
+                        {
+                            case "ContinuousDynamic":
+                                rbCollisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+                                break;
+                            case "Continuous":
+                                rbCollisionDetectionMode = CollisionDetectionMode.Continuous;
+                                break;
+
+                            default:
+                                rbCollisionDetectionMode = CollisionDetectionMode.Discrete;
+                                break;
+                        }
+
+                        AddRigidBodies(staticGameObject, objectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
+                            rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
                         break;
                 }
             }
@@ -461,17 +520,41 @@ namespace Kerbtown
             Extensions.LogInfo("Modules loaded. (" + stopWatch.ElapsedMilliseconds + "ms)");
         }
 
-        private static void SetLayerRecursively(GameObject staticGameObject, int newLayerNumber)
+        private static void AddRigidBodies(GameObject sGameObject, string gameObjectName,
+            float rbMass, float rbDrag, float rbAngularDrag, bool rbUseGravity,
+            bool rbIsKinematic, RigidbodyInterpolation rbInterpolation,
+            CollisionDetectionMode rbCollisionDetectionMode)
         {
-            // Only set to layer 'newLayerNumber' if the collider is not a trigger.
-            if ((staticGameObject.collider != null &&
-                 staticGameObject.collider.enabled &&
-                 !staticGameObject.collider.isTrigger) || staticGameObject.collider == null)
+            if (sGameObject.name == gameObjectName)
             {
-                staticGameObject.layer = newLayerNumber;
+                var rigidBody = sGameObject.AddComponent<Rigidbody>();
+                rigidBody.isKinematic = rbIsKinematic;
+                rigidBody.useGravity = rbUseGravity;
+                rigidBody.mass = rbMass;
+                rigidBody.drag = rbDrag;
+                rigidBody.angularDrag = rbAngularDrag;
+                rigidBody.interpolation = rbInterpolation;
+                rigidBody.collisionDetectionMode = rbCollisionDetectionMode;
             }
 
-            foreach (Transform child in staticGameObject.transform)
+            foreach (Transform childTransform in sGameObject.transform)
+            {
+                AddRigidBodies(childTransform.gameObject, gameObjectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
+                    rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
+            }
+        }
+
+        private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
+        {
+            // Only set to layer 'newLayerNumber' if the collider is not a trigger.
+            if ((sGameObject.collider != null &&
+                 sGameObject.collider.enabled &&
+                 !sGameObject.collider.isTrigger) || sGameObject.collider == null)
+            {
+                sGameObject.layer = newLayerNumber;
+            }
+
+            foreach (Transform child in sGameObject.transform)
             {
                 SetLayerRecursively(child.gameObject, newLayerNumber);
             }
@@ -479,7 +562,10 @@ namespace Kerbtown
 
         private static CelestialObject GetCelestialObject(string celestialName)
         {
-            return new CelestialObject(FlightGlobals.ActiveVessel.mainBody.gameObject);
+            //return new CelestialObject(FlightGlobals.ActiveVessel.mainBody.gameObject); // whoops XD
+            return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
+                where gameObjectInScene.name == celestialName
+                select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
         }
 
         private StaticObject GetStaticObjectFromID(string objectID)
