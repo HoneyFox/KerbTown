@@ -11,13 +11,13 @@ namespace Kerbtown
     {
         public new void OnSphereActive()
         {
-            Debug.LogWarning("OSA");
+            //Debug.LogWarning("OSA");
             base.OnSphereActive();
         }
 
         public new void OnSphereInactive()
         {
-            Debug.LogWarning("OSI");
+            //Debug.LogWarning("OSI");
             base.OnSphereInactive();
         }
     }

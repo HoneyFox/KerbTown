@@ -562,7 +562,9 @@ namespace Kerbtown
 
         private CelestialObject GetCelestialObject(string celestialName)
         {
-            if (_currentCelestialObj.CelestialBodyComponent.bodyName == celestialName)
+            if (_currentCelestialObj != null &&
+                (_currentCelestialObj.CelestialBodyComponent != null &&
+                 _currentCelestialObj.CelestialBodyComponent.bodyName == celestialName))
                 return _currentCelestialObj;
 
             return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
