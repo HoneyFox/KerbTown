@@ -560,9 +560,11 @@ namespace Kerbtown
             }
         }
 
-        private static CelestialObject GetCelestialObject(string celestialName)
+        private CelestialObject GetCelestialObject(string celestialName)
         {
-            //return new CelestialObject(FlightGlobals.ActiveVessel.mainBody.gameObject); // whoops XD
+            if (_currentCelestialObj.CelestialBodyComponent.bodyName == celestialName)
+                return _currentCelestialObj;
+
             return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
                 where gameObjectInScene.name == celestialName
                 select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
