@@ -94,8 +94,8 @@ namespace Kerbtown.EEComponents
         {
             if (otherCollider.name != "capsuleCollider") return;
 
-            var rb = PlankGameObject.GetComponent<Rigidbody>() ?? PlankGameObject.AddComponent<Rigidbody>();
-            
+            Rigidbody rb = PlankGameObject.GetComponent<Rigidbody>() ?? PlankGameObject.AddComponent<Rigidbody>();
+
             rb.collisionDetectionMode = CollisionDetectionMode.Continuous;
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 

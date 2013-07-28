@@ -182,6 +182,7 @@ namespace Kerbtown
                 }
             }
         }
+    
 
         private static Vector3 GetLocalPosition(CelestialBody celestialObject, double latitude, double longitude)
         {
@@ -296,10 +297,21 @@ namespace Kerbtown
             // Set the parent object to the celestial component's GameObject.
             staticGameObject.transform.parent = celestialPQS.transform;
 
+            Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
+            var rendererList = new List<GameObject>();
+            var objectList = new List<GameObject>();
+
+            foreach (Transform t in gameObjectList)
+            {
+                if (t.gameObject.renderer != null)
+                    rendererList.Add(t.gameObject);
+                objectList.Add(t.gameObject);
+            }
+
             _myLodRange = new PQSCity.LODRange
                           {
-                              renderers = new[] {staticGameObject},
-                              objects = new[] {staticGameObject},
+                              renderers = rendererList.ToArray(),
+                              objects = new[] {staticGameObject}, // objectList.ToArray(),
                               visibleRange = visibilityRange
                           };
 
@@ -374,6 +386,7 @@ namespace Kerbtown
                 Extensions.LogError("Could not add the obtained module \"" + moduleClass.Name +
                                     "\" to the static game object.");
             }
+
         }
 
         private static void AddNativeComponent(GameObject staticGameObject, Type classType)
@@ -745,6 +758,21 @@ namespace Kerbtown
                         "NameID: {0}, ObjectID: {1}, CelestialBodyName: {2}, ModelUrl: {3}, ConfigUrl: {4}, RPos: {5}",
                         NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
             }
+        }
+
+        private void Deactivate(PQSCity pqsCityComponent)
+        {
+            foreach (var lod in pqsCityComponent.lod)
+            {
+                lod.SetActive(false);
+            }
+
+            pqsCityComponent.modEnabled = false;
+            //pqsCityComponent.RebuildSphere();
+            
+            GameObject gobj = pqsCityComponent.gameObject;
+            Destroy(pqsCityComponent);
+            Destroy(gobj);
         }
     }
 

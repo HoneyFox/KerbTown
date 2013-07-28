@@ -1,4 +1,9 @@
-﻿using System.Collections;
+﻿/* LICENSE
+ * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
+ * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ */
+
+using System.Collections;
 using System.Linq;
 using UnityEngine;
 
@@ -44,7 +49,7 @@ namespace Kerbtown.NativeModules
                     clickComponent.AnimationComponent = animationComponent;
                     clickComponent.AnimationName = AnimationName;
                     clickComponent.HighlightOnMouseOver = HighlightOnHover;
-                    
+
                     break;
 
                 case "AnimateOnCollision":
@@ -83,7 +88,7 @@ namespace Kerbtown.NativeModules
 
             AnimationComponent[AnimationName].speed = _atStart ? 1 : -1;
             AnimationComponent[AnimationName].normalizedTime = _atStart ? 0 : 1;
-            
+
             AnimationComponent.Play(AnimationName);
 
             yield return new WaitForSeconds(AnimationComponent[AnimationName].length);

@@ -3,22 +3,36 @@
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
-using UnityEngine;
-
 namespace Kerbtown
 {
-    class PQSCityEx : PQSCity
+    internal class PQSCityEx : PQSCity
     {
         public new void OnSphereActive()
         {
-            //Debug.LogWarning("OSA");
+            if (!modEnabled) return;
+
             base.OnSphereActive();
         }
 
         public new void OnSphereInactive()
         {
-            //Debug.LogWarning("OSI");
+            if (!modEnabled) return;
+
             base.OnSphereInactive();
+        }
+
+        public new void OnUpdateFinished()
+        {
+            if (!modEnabled) return;
+
+            base.OnUpdateFinished();
+        }
+
+        public new void OnSphereReset()
+        {
+            if (!modEnabled) return;
+
+            base.OnSphereReset();
         }
     }
 }

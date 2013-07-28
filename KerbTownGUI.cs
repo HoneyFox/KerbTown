@@ -1,4 +1,9 @@
-﻿using System;
+﻿/* LICENSE
+ * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
+ * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ */
+
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -8,7 +13,6 @@ namespace Kerbtown
 {
     public partial class KerbTown
     {
-
         #region Window Properties
 
         #region Window Rects
@@ -24,7 +28,6 @@ namespace Kerbtown
         private bool _availAssetsVisible = true;
         private bool _currAssetsVisible;
         private bool _mainWindowVisible;
-        private bool _selectedWindowVisible = true;
 
         #endregion
 
@@ -46,7 +49,7 @@ namespace Kerbtown
 
             // Main Window
             _mainWindowRect = GUI.Window(0x8100, _mainWindowRect, DrawMainWindow, "KerbTown Editor");
-            
+
             // Selected Object Window
             GUI.Window(0x8103,
                 new Rect(_mainWindowRect.x + 5, _mainWindowRect.y + _mainWindowRect.height + 5, 400,
@@ -63,7 +66,7 @@ namespace Kerbtown
                     "Existing Static Assets List");
             }
         }
-           
+
         private void DrawMainWindow(int windowID)
         {
             GUI.Label(new Rect(10, 20, 100, 22), "Asset Lists");
@@ -337,7 +340,7 @@ namespace Kerbtown
             GUI.Box(new Rect(10, 20, 580, 300), "");
 
             _availAssetScrollPos = GUI.BeginScrollView(new Rect(10, 20, 580, 300), _availAssetScrollPos,
-                new Rect(0, 0, 560, _modelList.Count * 25 + 5));
+                new Rect(0, 0, 560, _modelList.Count*25 + 5));
 
             int i = 0;
 
@@ -348,7 +351,7 @@ namespace Kerbtown
                 bool itemMatches = (model == _currentModelUrl);
                 GUI.backgroundColor = new Color(0.3f, itemMatches ? 1f : 0.3f, 0.3f);
 
-                if (GUI.Button(new Rect(5, (i * 25) + 5, 550, 22),
+                if (GUI.Button(new Rect(5, (i*25) + 5, 550, 22),
                     itemMatches
                         ? string.Format("[ {0} ]", model)
                         : model))
@@ -417,7 +420,7 @@ namespace Kerbtown
             GUI.Box(new Rect(10, 20, 580, 300), "");
 
             _currAssetScrollPos = GUI.BeginScrollView(new Rect(10, 20, 580, 300), _currAssetScrollPos,
-                new Rect(0, 0, 560, _instancedList.Values.Sum(list => list.Count) * 25 + 5));
+                new Rect(0, 0, 560, _instancedList.Values.Sum(list => list.Count)*25 + 5));
 
             int i = 0;
 
@@ -428,7 +431,7 @@ namespace Kerbtown
                     bool itemMatches = sObject.ObjectID == _currentObjectID;
                     GUI.backgroundColor = new Color(0.3f, itemMatches ? 1f : 0.3f, 0.3f);
 
-                    if (GUI.Button(new Rect(5, (i * 25) + 5, 550, 22),
+                    if (GUI.Button(new Rect(5, (i*25) + 5, 550, 22),
                         string.Format("{0} (ID: {1})", sObject.ModelUrl, sObject.ObjectID)))
                     {
                         if (itemMatches)
@@ -464,7 +467,8 @@ namespace Kerbtown
             {
                 if (_currentSelectedObject != null)
                 {
-                    Destroy(_currentSelectedObject.StaticGameObject);
+                    //Destroy(_currentSelectedObject.StaticGameObject);
+                    Deactivate(_currentSelectedObject.PQSCityComponent);
                     RemoveCurrentStaticObject(_currentSelectedObject.ModelUrl);
                 }
 
