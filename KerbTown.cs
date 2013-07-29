@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
+using System.Reflection;
 using Kerbtown.EEComponents;
 using Kerbtown.NativeModules;
 using UnityEngine;
@@ -182,7 +183,6 @@ namespace Kerbtown
                 }
             }
         }
-    
 
         private static Vector3 GetLocalPosition(CelestialBody celestialObject, double latitude, double longitude)
         {
@@ -275,8 +275,6 @@ namespace Kerbtown
                     _currentCelestialObj.CelestialBodyComponent.transform.InverseTransformPoint(
                         FlightGlobals.ActiveVessel.transform.position);
 
-                //radialPosition =celestialPQS.GetRelativePosition(FlightGlobals.ActiveVessel.transform.position);
-
                 sObject.RadPosition = radialPosition;
             }
 
@@ -298,20 +296,13 @@ namespace Kerbtown
             staticGameObject.transform.parent = celestialPQS.transform;
 
             Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
-            var rendererList = new List<GameObject>();
-            var objectList = new List<GameObject>();
-
-            foreach (Transform t in gameObjectList)
-            {
-                if (t.gameObject.renderer != null)
-                    rendererList.Add(t.gameObject);
-                objectList.Add(t.gameObject);
-            }
 
             _myLodRange = new PQSCity.LODRange
                           {
-                              renderers = rendererList.ToArray(),
-                              objects = new[] {staticGameObject}, // objectList.ToArray(),
+                              renderers =
+                                  (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject)
+                                  .ToArray(),
+                              objects = new[] {staticGameObject},
                               visibleRange = visibilityRange
                           };
 
@@ -381,13 +372,147 @@ namespace Kerbtown
                 return;
             }
 
-            if (staticGameObject.AddComponent(moduleClass) == null)
+            var moduleComponent = staticGameObject.AddComponent(moduleClass) as MonoBehaviour;
+
+            if (moduleComponent == null)
             {
                 Extensions.LogError("Could not add the obtained module \"" + moduleClass.Name +
                                     "\" to the static game object.");
+                return;
             }
 
+            AssignVariables(configNode, moduleComponent);
         }
+
+        private static void AssignVariables(ConfigNode configNode, MonoBehaviour moduleComponent)
+        {
+            IEnumerator enumerator = configNode.values.GetEnumerator();
+
+            while (enumerator.MoveNext())
+            {
+                var current = (ConfigNode.Value) enumerator.Current;
+
+                if (current == null)
+                    continue;
+
+                FieldInfo field = moduleComponent.GetType().GetField(current.name);
+                if (field == null)
+                    continue;
+
+                field.SetValue(moduleComponent, ParseValue(current.value, field));
+            }
+        }
+
+        private static object ParseValue(string value, FieldInfo field)
+        {
+            if (!field.FieldType.IsValueType)
+            {
+                if (field.FieldType == typeof (string))
+                    return value;
+            }
+            else
+            {
+                try
+                {
+                    if (field.FieldType == typeof (sbyte)) return sbyte.Parse(value);
+                    if (field.FieldType == typeof (short)) return short.Parse(value);
+                    if (field.FieldType == typeof (int)) return int.Parse(value);
+                    if (field.FieldType == typeof (long)) return long.Parse(value);
+                    if (field.FieldType == typeof (byte)) return byte.Parse(value);
+                    if (field.FieldType == typeof (ushort)) return ushort.Parse(value);
+                    if (field.FieldType == typeof (uint)) return uint.Parse(value);
+                    if (field.FieldType == typeof (ulong)) return ulong.Parse(value);
+                    if (field.FieldType == typeof (float)) return float.Parse(value);
+                    if (field.FieldType == typeof (double)) return double.Parse(value);
+                    if (field.FieldType == typeof (decimal)) return decimal.Parse(value);
+                    if (field.FieldType == typeof (char)) return char.Parse(value);
+                    if (field.FieldType == typeof (bool)) return bool.Parse(value);
+
+                    char[] separators = {',', ' ', '\t'};
+                    string[] stringArray = value.Split(separators, StringSplitOptions.RemoveEmptyEntries);
+
+                    if (field.FieldType == typeof (Vector2))
+                    {
+                        if (stringArray.Length != 2) throw new Exception("Vector2 not formatted properly.");
+                        return new Vector2(float.Parse(stringArray[0]), float.Parse(stringArray[1]));
+                    }
+                    if (field.FieldType == typeof (Vector2d))
+                    {
+                        if (stringArray.Length != 2) throw new Exception("Vector2d not formatted properly.");
+                        return new Vector2d(double.Parse(stringArray[0]), double.Parse(stringArray[1]));
+                    }
+                    if (field.FieldType == typeof (Vector3))
+                    {
+                        if (stringArray.Length != 3) throw new Exception("Vector3 not formatted properly.");
+                        return new Vector3(float.Parse(stringArray[0]), float.Parse(stringArray[1]),
+                            float.Parse(stringArray[2]));
+                    }
+                    if (field.FieldType == typeof (Vector3d))
+                    {
+                        if (stringArray.Length != 3) throw new Exception("Vector3d not formatted properly.");
+                        return new Vector3d(double.Parse(stringArray[0]), double.Parse(stringArray[1]),
+                            double.Parse(stringArray[2]));
+                    }
+                    if (field.FieldType == typeof (Vector4))
+                    {
+                        if (stringArray.Length != 4) throw new Exception("Vector4 not formatted properly.");
+                        return new Vector4(float.Parse(stringArray[0]), float.Parse(stringArray[1]),
+                            float.Parse(stringArray[2]), float.Parse(stringArray[3]));
+                    }
+                    if (field.FieldType == typeof (Vector4d))
+                    {
+                        if (stringArray.Length != 4) throw new Exception("Vector4d not formatted properly.");
+                        return new Vector4d(double.Parse(stringArray[0]), double.Parse(stringArray[1]),
+                            double.Parse(stringArray[2]), double.Parse(stringArray[3]));
+                    }
+                    if (field.FieldType == typeof (Quaternion))
+                    {
+                        if (stringArray.Length != 4) throw new Exception("Quaternion not formatted properly.");
+                        return new Quaternion(float.Parse(stringArray[0]), float.Parse(stringArray[1]),
+                            float.Parse(stringArray[2]), float.Parse(stringArray[3]));
+                    }
+                    if (field.FieldType == typeof (QuaternionD))
+                    {
+                        if (stringArray.Length != 4) throw new Exception("QuaternionD not formatted properly.");
+                        return new QuaternionD(double.Parse(stringArray[0]), double.Parse(stringArray[1]),
+                            double.Parse(stringArray[2]), double.Parse(stringArray[3]));
+                    }
+                    if (field.FieldType == typeof (Color))
+                    {
+                        if (stringArray.Length == 4 || stringArray.Length == 3)
+                        {
+                            return new Color(float.Parse(stringArray[0]), float.Parse(stringArray[1]),
+                                float.Parse(stringArray[2]), stringArray.Length == 4 ? float.Parse(stringArray[3]) : 1);
+                        }
+                        throw new Exception("Color not formatted properly.");
+                    }
+                    if (field.FieldType == typeof (Color32))
+                    {
+                        if (stringArray.Length == 4 || stringArray.Length == 3)
+                        {
+                            return new Color32(byte.Parse(stringArray[0]), byte.Parse(stringArray[1]),
+                                byte.Parse(stringArray[2]),
+                                stringArray.Length == 4 ? byte.Parse(stringArray[3]) : (byte) 255);
+                        }
+                        throw new Exception("Color32 not formatted properly.");
+                    }
+
+                    if (field.FieldType.IsEnum) return Enum.Parse(field.FieldType, value);
+                }
+                catch (Exception exception)
+                {
+                    Debug.LogException(exception);
+                    Extensions.LogError(
+                        string.Format(
+                            "Could not parse the value '{0}' for '{1}' as '{2}'. It may have been incorrectly formatted.",
+                            value,
+                            field.Name, field.FieldType.Name));
+                }
+            }
+
+            return null;
+        }
+
 
         private static void AddNativeComponent(GameObject staticGameObject, Type classType)
         {
@@ -611,6 +736,21 @@ namespace Kerbtown
             return (float) (relativePosition.x/rpNormalized.x - _currentCelestialObj.PQSComponent.radius);
         }
 
+        private static void Deactivate(PQSCity pqsCityComponent)
+        {
+            foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
+            {
+                lod.SetActive(false);
+            }
+
+            pqsCityComponent.modEnabled = false;
+            //pqsCityComponent.RebuildSphere();
+
+            GameObject gobj = pqsCityComponent.gameObject;
+            Destroy(pqsCityComponent);
+            Destroy(gobj);
+        }
+
         private class CelestialObject
         {
             public readonly CelestialBody CelestialBodyComponent;
@@ -758,21 +898,6 @@ namespace Kerbtown
                         "NameID: {0}, ObjectID: {1}, CelestialBodyName: {2}, ModelUrl: {3}, ConfigUrl: {4}, RPos: {5}",
                         NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
             }
-        }
-
-        private void Deactivate(PQSCity pqsCityComponent)
-        {
-            foreach (var lod in pqsCityComponent.lod)
-            {
-                lod.SetActive(false);
-            }
-
-            pqsCityComponent.modEnabled = false;
-            //pqsCityComponent.RebuildSphere();
-            
-            GameObject gobj = pqsCityComponent.gameObject;
-            Destroy(pqsCityComponent);
-            Destroy(gobj);
         }
     }
 
