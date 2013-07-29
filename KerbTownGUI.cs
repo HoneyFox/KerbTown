@@ -297,6 +297,13 @@ namespace Kerbtown
                 _currentSelectedObject.Reorientate();
             }
 
+            bool isLaunchSite = (_currentSelectedObject.LaunchSiteName != "");
+
+            if (GUI.Button(new Rect(10, 200, 150, 22), isLaunchSite ? "Unmark as Launch Site" : "Mark as Launch Site"))
+            {
+                _currentSelectedObject.MakeLaunchSite(!isLaunchSite);
+            }
+
             GUI.EndGroup();
         }
 

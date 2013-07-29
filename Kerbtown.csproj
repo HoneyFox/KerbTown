@@ -50,6 +50,7 @@
     <Compile Include="EEComponents\MushroomCave.cs" />
     <Compile Include="KerbTown.cs" />
     <Compile Include="KerbTownGUI.cs" />
+    <Compile Include="LaunchSiteSelector.cs" />
     <Compile Include="NativeModules\GenericAnimation.cs" />
     <Compile Include="PQSCityEx.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

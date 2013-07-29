@@ -27,19 +27,21 @@ namespace Kerbtown
         private string _currentModelUrl = "";
         private StaticObject _currentSelectedObject;
 
-        private Dictionary<string, List<StaticObject>> _instancedList; // Initialized OnStart()
+        private Dictionary<string, List<StaticObject>> _instancedList;
         private Dictionary<string, string> _modelList;
 
         private PQSCity.LODRange _myLodRange;
         private float _prevRotationAngle;
 
-        private void Start()
+        private void Awake()
         {
             GenerateModelLists();
             InstantiateEasterEggs();
             InstantiateStaticsFromInstanceList();
 
-            _currentBodyName = FlightGlobals.currentMainBody.bodyName;
+            if (FlightGlobals.currentMainBody != null) 
+                _currentBodyName = FlightGlobals.currentMainBody.bodyName;  //todo remove redundant code
+
             GameEvents.onDominantBodyChange.Add(BodyChangedCallback);
             GameEvents.onFlightReady.Add(FlightReadyCallBack);
         }
@@ -140,6 +142,7 @@ namespace Kerbtown
                     instanceNode.AddValue("Orientation", ConfigNode.WriteVector(inst.Orientation));
                     instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
                     instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
+                    instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
 
                     modelPartRootNode.nodes.Add(instanceNode);
                 }
@@ -240,12 +243,13 @@ namespace Kerbtown
                     Vector3 orientation = ConfigNode.ParseVector3(ins.GetValue("Orientation"));
                     float visRange = float.Parse(ins.GetValue("VisibilityRange"));
                     string celestialBodyName = ins.GetValue("CelestialBody");
+                    string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
 
                     if (_instancedList.ContainsKey(modelUrl))
                     {
                         _instancedList[modelUrl].Add(
                             new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName));
+                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
                     }
                     else
                     {
@@ -253,7 +257,7 @@ namespace Kerbtown
                             new List<StaticObject>
                             {
                                 new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName)
+                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName,"",launchSiteName)
                             });
                     }
                 }
@@ -512,7 +516,6 @@ namespace Kerbtown
 
             return null;
         }
-
 
         private static void AddNativeComponent(GameObject staticGameObject, Type classType)
         {
@@ -781,6 +784,8 @@ namespace Kerbtown
 
             public string CelestialBodyName = "";
 
+            public string LaunchSiteName = "";
+
             public double Latitude;
             public double Longitude;
             public Vector3 Orientation;
@@ -797,7 +802,7 @@ namespace Kerbtown
 
             public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
                 Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
-                string celestialBodyName, string objectID = "")
+                string celestialBodyName, string objectID = "",string launchSiteName = "")
             {
                 RadPosition = radialPosition;
                 RotAngle = rotationAngle;
@@ -809,6 +814,8 @@ namespace Kerbtown
 
                 ModelUrl = modelUrl;
                 ConfigURL = configUrl;
+
+                LaunchSiteName = launchSiteName;
 
                 ObjectID = objectID;
 
@@ -889,6 +896,27 @@ namespace Kerbtown
                 PQSCityComponent.reorientFinalAngle = RotAngle;
                 PQSCityComponent.reorientInitialUp = Orientation;
                 PQSCityComponent.Orientate();
+            }
+
+            public bool MakeLaunchSite(bool isLaunchSite)
+            {
+                if (!isLaunchSite)
+                {
+                    LaunchSiteName = "";
+                    return true;
+                }
+
+                foreach (Transform t in StaticGameObject.transform)
+                {
+                    if (!t.name.EndsWith("_spawn")) 
+                        continue;
+
+                    LaunchSiteName = t.name.Replace("_spawn", "");
+                    return true;
+                }
+                
+                Extensions.LogError("Unable to find the launch spawning transform.");
+                return false;
             }
 
             public override string ToString()
