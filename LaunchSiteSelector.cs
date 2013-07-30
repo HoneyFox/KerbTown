@@ -12,7 +12,6 @@ namespace Kerbtown
         private void GetLaunchSiteList()
         {
             UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
-
             _launchSiteList.Add("LaunchPad");
             _launchSiteList.Add("Runway");
 
@@ -36,11 +35,8 @@ namespace Kerbtown
         public void Start()
         {
             GetLaunchSiteList();
-
-            EditorLogic.fetch.launchSiteName = "CubeSite";
-            Debug.LogWarning("LaunchSite set.");
+            
         }
-
 
         private bool _menuVisible;
         private Rect _boxRect = new Rect(Screen.width/2 + 290, -100, 170, 100);
@@ -49,7 +45,7 @@ namespace Kerbtown
         private float _topPosition = -250;
         private Vector2 _scrollPosition = new Vector2(0, 0);
         private bool _menuSliding;
-        private string currentLaunchSite = "";
+        private string _currentLaunchSite = "";
 
         public void OnGUI()
         {
@@ -77,7 +73,7 @@ namespace Kerbtown
                         if (GUI.Button(new Rect(5, index*30 + 5, 220, 30), launchSite))
                         {
                             EditorLogic.fetch.launchSiteName = launchSite;
-                            currentLaunchSite = launchSite;
+                            _currentLaunchSite = launchSite;
                             Debug.LogWarning("[KerbTown] Set LaunchSite to: " + launchSite);
                             StartCoroutine(ToggleMenu());
                         }
@@ -91,7 +87,7 @@ namespace Kerbtown
             GUI.depth = -99;
             GUI.backgroundColor = new Color(0.5f, 0.65f, 0.27f, 1);
 
-            if (GUI.Button(_launchSiteButtonRect, currentLaunchSite == "" ? "Select Launch Site" : currentLaunchSite))
+            if (GUI.Button(_launchSiteButtonRect, _currentLaunchSite == "" ? "Select Launch Site" : _currentLaunchSite))
             {
                 StartCoroutine(ToggleMenu());
             }
