@@ -81,7 +81,7 @@ namespace Kerbtown
                             EditorLogic.fetch.launchSiteName = launchSite;
                             _currentLaunchSite = launchSite;
                             Extensions.LogWarning("Set LaunchSite to: " + launchSite);
-                            StartCoroutine(_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
+                            StartCoroutine(!_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
                         }
                     }
 

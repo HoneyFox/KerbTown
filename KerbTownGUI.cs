@@ -4,7 +4,9 @@
  */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
+using System.Data;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
@@ -41,6 +43,7 @@ namespace Kerbtown
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
+        private bool _showSavedLabel;
 
         private void OnGUI()
         {
@@ -79,10 +82,18 @@ namespace Kerbtown
 
             GUI.Label(new Rect(10, 70, 100, 22), "Functions");
 
-            if (GUI.Button(new Rect(20, 90, 220, 22), "Save Session"))
+            if (GUI.Button(new Rect(20, 90, 120, 22), "Save Session"))
             {
                 WriteSessionConfigs();
+                if (!_showSavedLabel)
+                {
+                    _showSavedLabel = true;
+                    StartCoroutine(HideStatus());
+                }
             }
+            
+            if(_showSavedLabel)
+                GUI.Label(new Rect(130, 90, 200, 22), "Saved.");
 
             if (_currentSelectedObject != null)
             {
@@ -90,6 +101,12 @@ namespace Kerbtown
             }
 
             GUI.DragWindow(new Rect(0, 0, 10000, 10000));
+        }
+
+        private IEnumerator HideStatus()
+        {
+            yield return new WaitForSeconds(1);
+            _showSavedLabel = false;
         }
 
         private void DrawPositioningControls()
