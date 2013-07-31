@@ -725,7 +725,7 @@ namespace Kerbtown
 
         private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
         {
-            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 1000, modelUrl, configUrl, "");
+            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl, "");
         }
 
         private float GetSurfaceRadiusOffset()

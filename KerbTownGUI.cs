@@ -79,7 +79,7 @@ namespace Kerbtown
 
             GUI.Label(new Rect(10, 70, 100, 22), "Functions");
 
-            if (GUI.Button(new Rect(20, 90, 220, 22), "Write current session to Configs."))
+            if (GUI.Button(new Rect(20, 90, 220, 22), "Save Session"))
             {
                 WriteSessionConfigs();
             }

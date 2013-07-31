@@ -1,5 +1,6 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 
 namespace Kerbtown
@@ -8,6 +9,17 @@ namespace Kerbtown
     public class LaunchSiteSelector : MonoBehaviour
     {
         private readonly List<string> _launchSiteList = new List<string>();
+        private bool _alternatePosition;
+
+        private Rect _boxRect = new Rect(Screen.width/2 + 290, -100, 170, 100);
+        private string _currentLaunchSite = "";
+        private string _defaultLaunchSite = "LaunchPad";
+
+        private Rect _launchSiteButtonRect = new Rect(Screen.width/2 + 280, 0, 180, 36);
+        private bool _menuSliding;
+        private bool _menuVisible;
+        private float _positionOffset = -250;
+        private Vector2 _scrollPosition = new Vector2(0, 0);
 
         private void GetLaunchSiteList()
         {
@@ -15,44 +27,38 @@ namespace Kerbtown
             _launchSiteList.Add("LaunchPad");
             _launchSiteList.Add("Runway");
 
-            foreach (UrlDir.UrlConfig staticUrlConfig in staticConfigs)
-            {
-                if (!staticUrlConfig.config.HasNode("Instances"))
-                    continue;
-
-                foreach (ConfigNode ins in staticUrlConfig.config.GetNodes("Instances"))
-                {
-                    string launchSiteName = ins.GetValue("LaunchSiteName");
-
-                    if (string.IsNullOrEmpty(launchSiteName))
-                        continue;
-
-                    _launchSiteList.Add(launchSiteName);
-                }
-            }
+            foreach (string launchSiteName in from staticUrlConfig in staticConfigs
+                where staticUrlConfig.config.HasNode("Instances")
+                from ins in staticUrlConfig.config.GetNodes("Instances")
+                select ins.GetValue("LaunchSiteName")
+                into launchSiteName
+                where !string.IsNullOrEmpty(launchSiteName)
+                select launchSiteName) 
+                _launchSiteList.Add(launchSiteName);
         }
 
         public void Start()
         {
+            if (Screen.width < 1600)
+            {
+                _alternatePosition = true;
+                _launchSiteButtonRect = new Rect(Screen.width - 180, 50, 180, 36);
+            }
+
+            if (HighLogic.LoadedScene == GameScenes.SPH)
+                _defaultLaunchSite = "Runway";
+
             GetLaunchSiteList();
-            
         }
-
-        private bool _menuVisible;
-        private Rect _boxRect = new Rect(Screen.width/2 + 290, -100, 170, 100);
-
-        private readonly Rect _launchSiteButtonRect = new Rect(Screen.width/2 + 280, 0, 180, 36);
-        private float _topPosition = -250;
-        private Vector2 _scrollPosition = new Vector2(0, 0);
-        private bool _menuSliding;
-        private string _currentLaunchSite = "";
 
         public void OnGUI()
         {
-            if (EditorLogic.fetch == null) 
+            if (EditorLogic.fetch == null)
                 return;
 
-            GUI.skin = EditorPartsListController.fetch != null ? EditorPartsListController.fetch.pageButtonsSkin : HighLogic.Skin;
+            GUI.skin = EditorPartsListController.fetch != null
+                ? EditorPartsListController.fetch.pageButtonsSkin
+                : HighLogic.Skin;
 
             if (_menuVisible)
             {
@@ -74,8 +80,8 @@ namespace Kerbtown
                         {
                             EditorLogic.fetch.launchSiteName = launchSite;
                             _currentLaunchSite = launchSite;
-                            Debug.LogWarning("[KerbTown] Set LaunchSite to: " + launchSite);
-                            StartCoroutine(ToggleMenu());
+                            Extensions.LogWarning("Set LaunchSite to: " + launchSite);
+                            StartCoroutine(_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
                         }
                     }
 
@@ -85,11 +91,16 @@ namespace Kerbtown
             }
 
             GUI.depth = -99;
-            GUI.backgroundColor = new Color(0.5f, 0.65f, 0.27f, 1);
+
+            if (_currentLaunchSite == "" || _currentLaunchSite == _defaultLaunchSite)
+                GUI.backgroundColor = new Color(0.5f, 0.65f, 0.27f, 1);
+            else
+                GUI.backgroundColor = new Color(0.0f, 0.65f, 0.27f, 1);
+
 
             if (GUI.Button(_launchSiteButtonRect, _currentLaunchSite == "" ? "Select Launch Site" : _currentLaunchSite))
             {
-                StartCoroutine(ToggleMenu());
+                StartCoroutine(!_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
             }
         }
 
@@ -99,26 +110,58 @@ namespace Kerbtown
             if (!_menuVisible)
             {
                 _menuVisible = true;
-                _topPosition = -250;
-                while (_topPosition < 0)
+                _positionOffset = -250;
+                while (_positionOffset < 0)
                 {
                     yield return new WaitForSeconds(0.01f);
-                    _topPosition += 10;
+                    _positionOffset += 10;
 
-                    if (_topPosition <= 0)
-                        _boxRect = new Rect(Screen.width / 2 + 290, _topPosition, 250, 250);
+                    if (_positionOffset <= 0)
+                        _boxRect = new Rect(Screen.width/2 + 290, _positionOffset, 250, 250);
                 }
             }
             else
             {
-                _topPosition = 0;
-                while (_topPosition > -250)
+                _positionOffset = 0;
+                while (_positionOffset > -250)
                 {
                     yield return new WaitForSeconds(0.01f);
-                    _topPosition -= 10;
+                    _positionOffset -= 10;
 
-                    if (_topPosition >= -250)
-                        _boxRect = new Rect(Screen.width / 2 + 290, _topPosition, 250, 250);
+                    if (_positionOffset >= -250)
+                        _boxRect = new Rect(Screen.width/2 + 290, _positionOffset, 250, 250);
+                }
+                _menuVisible = false;
+            }
+            _menuSliding = false;
+        }
+
+        private IEnumerator ToggleMenuAlt()
+        {
+            _menuSliding = true;
+            if (!_menuVisible)
+            {
+                _menuVisible = true;
+                _positionOffset = Screen.width;
+                while (_positionOffset > Screen.width - 250)
+                {
+                    yield return new WaitForSeconds(0.01f);
+                    _positionOffset -= 10;
+
+                    if (_positionOffset >= Screen.width - 250)
+                        _boxRect = new Rect(_positionOffset, 40, 250, 250);
+                }
+            }
+            else
+            {
+                _positionOffset = 40;
+                while (_positionOffset > -250)
+                {
+                    yield return new WaitForSeconds(0.01f);
+                    _positionOffset -= 10;
+
+                    if (_positionOffset >= -250)
+                        _boxRect = new Rect(Screen.width - 250, _positionOffset, 250, 250);
                 }
                 _menuVisible = false;
             }
