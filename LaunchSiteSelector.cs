@@ -113,8 +113,8 @@ namespace Kerbtown
                 _positionOffset = -250;
                 while (_positionOffset < 0)
                 {
-                    yield return new WaitForSeconds(0.01f);
-                    _positionOffset += 10;
+                    yield return null;
+                    _positionOffset += 500 * Time.deltaTime;
 
                     if (_positionOffset <= 0)
                         _boxRect = new Rect(Screen.width/2 + 290, _positionOffset, 250, 250);
@@ -125,8 +125,8 @@ namespace Kerbtown
                 _positionOffset = 0;
                 while (_positionOffset > -250)
                 {
-                    yield return new WaitForSeconds(0.01f);
-                    _positionOffset -= 10;
+                    yield return null;
+                    _positionOffset -= 500 * Time.deltaTime;
 
                     if (_positionOffset >= -250)
                         _boxRect = new Rect(Screen.width/2 + 290, _positionOffset, 250, 250);
@@ -145,8 +145,8 @@ namespace Kerbtown
                 _positionOffset = Screen.width;
                 while (_positionOffset > Screen.width - 250)
                 {
-                    yield return new WaitForSeconds(0.01f);
-                    _positionOffset -= 10;
+                    yield return null;
+                    _positionOffset -= 500 * Time.deltaTime;
 
                     if (_positionOffset >= Screen.width - 250)
                         _boxRect = new Rect(_positionOffset, 40, 250, 250);
@@ -157,8 +157,8 @@ namespace Kerbtown
                 _positionOffset = 40;
                 while (_positionOffset > -250)
                 {
-                    yield return new WaitForSeconds(0.01f);
-                    _positionOffset -= 10;
+                    yield return null;
+                    _positionOffset -= 500 * Time.deltaTime;
 
                     if (_positionOffset >= -250)
                         _boxRect = new Rect(Screen.width - 250, _positionOffset, 250, 250);
