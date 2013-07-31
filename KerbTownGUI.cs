@@ -92,7 +92,7 @@ namespace Kerbtown
             }
 
             if (_showSavedLabel)
-                GUI.Label(new Rect(130, 90, 200, 22), "Saved.");
+                GUI.Label(new Rect(150, 90, 200, 22), "Saved.");
 
             if (_currentSelectedObject != null)
             {
