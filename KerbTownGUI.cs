@@ -6,7 +6,6 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
-using System.Data;
 using System.Globalization;
 using System.Linq;
 using UnityEngine;
@@ -40,10 +39,10 @@ namespace Kerbtown
         #endregion
 
         private string _rPosition = "";
+        private bool _showSavedLabel;
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
-        private bool _showSavedLabel;
 
         private void OnGUI()
         {
@@ -91,8 +90,8 @@ namespace Kerbtown
                     StartCoroutine(HideStatus());
                 }
             }
-            
-            if(_showSavedLabel)
+
+            if (_showSavedLabel)
                 GUI.Label(new Rect(130, 90, 200, 22), "Saved.");
 
             if (_currentSelectedObject != null)

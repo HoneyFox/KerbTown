@@ -33,7 +33,7 @@ namespace Kerbtown
                 select ins.GetValue("LaunchSiteName")
                 into launchSiteName
                 where !string.IsNullOrEmpty(launchSiteName)
-                select launchSiteName) 
+                select launchSiteName)
                 _launchSiteList.Add(launchSiteName);
         }
 

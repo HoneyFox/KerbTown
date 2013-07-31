@@ -39,8 +39,8 @@ namespace Kerbtown
             InstantiateEasterEggs();
             InstantiateStaticsFromInstanceList();
 
-            if (FlightGlobals.currentMainBody != null) 
-                _currentBodyName = FlightGlobals.currentMainBody.bodyName;  //todo remove redundant code
+            if (FlightGlobals.currentMainBody != null)
+                _currentBodyName = FlightGlobals.currentMainBody.bodyName; //todo remove redundant code
 
             GameEvents.onDominantBodyChange.Add(BodyChangedCallback);
             GameEvents.onFlightReady.Add(FlightReadyCallBack);
@@ -257,7 +257,7 @@ namespace Kerbtown
                             new List<StaticObject>
                             {
                                 new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName,"",launchSiteName)
+                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName)
                             });
                     }
                 }
@@ -725,7 +725,8 @@ namespace Kerbtown
 
         private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
         {
-            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl, "");
+            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
+                "");
         }
 
         private float GetSurfaceRadiusOffset()
@@ -784,9 +785,8 @@ namespace Kerbtown
 
             public string CelestialBodyName = "";
 
-            public string LaunchSiteName = "";
-
             public double Latitude;
+            public string LaunchSiteName = "";
             public double Longitude;
             public Vector3 Orientation;
             public PQSCity PQSCityComponent;
@@ -802,7 +802,7 @@ namespace Kerbtown
 
             public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
                 Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
-                string celestialBodyName, string objectID = "",string launchSiteName = "")
+                string celestialBodyName, string objectID = "", string launchSiteName = "")
             {
                 RadPosition = radialPosition;
                 RotAngle = rotationAngle;
@@ -908,13 +908,13 @@ namespace Kerbtown
 
                 foreach (Transform t in StaticGameObject.transform)
                 {
-                    if (!t.name.EndsWith("_spawn")) 
+                    if (!t.name.EndsWith("_spawn"))
                         continue;
 
                     LaunchSiteName = t.name.Replace("_spawn", "");
                     return true;
                 }
-                
+
                 Extensions.LogError("Unable to find the launch spawning transform.");
                 return false;
             }
