@@ -47,8 +47,13 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="EEComponents\DistortionScript.cs" />
+    <Compile Include="EEComponents\KerbalSeatEx.cs" />
+    <Compile Include="EEComponents\MainMenu.cs" />
     <Compile Include="EEComponents\MushroomCave.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="KerbTown.cs" />
+    <Compile Include="KtCamera.cs" />
     <Compile Include="KerbTownGUI.cs" />
     <Compile Include="LaunchSiteSelector.cs" />
     <Compile Include="NativeModules\GenericAnimation.cs" />
