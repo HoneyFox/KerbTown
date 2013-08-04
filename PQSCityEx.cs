@@ -3,6 +3,8 @@
  * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
  */
 
+using UnityEngine;
+
 namespace Kerbtown
 {
     internal class PQSCityEx : PQSCity
@@ -20,11 +22,17 @@ namespace Kerbtown
 
             base.OnSphereInactive();
         }
-
+        
         public new void OnUpdateFinished()
         {
             if (!modEnabled) return;
 
+            //float currentDistance = Vector3.Distance(sphere.target.transform.position, transform.position);
+            //for (int i = lod.Length - 1; i >= 0; i--)
+            //{
+            //    lod[i].SetActive(currentDistance < lod[i].visibleRange);
+            //}
+            
             base.OnUpdateFinished();
         }
 
