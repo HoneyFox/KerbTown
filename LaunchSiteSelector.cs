@@ -1,4 +1,9 @@
-﻿using System.Collections;
+﻿/* LICENSE
+ * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
+ * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ */
+
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -21,7 +26,7 @@ namespace Kerbtown
         private float _positionOffset = -250;
         private Vector2 _scrollPosition = new Vector2(0, 0);
 
-        private void GetLaunchSiteList()
+        private void PopulateLaunchSiteList()
         {
             UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
             _launchSiteList.Add("LaunchPad");
@@ -48,7 +53,17 @@ namespace Kerbtown
             if (HighLogic.LoadedScene == GameScenes.SPH)
                 _defaultLaunchSite = "Runway";
 
-            GetLaunchSiteList();
+            PopulateLaunchSiteList();
+
+            string lastLaunchSite = Extensions.ReadSetting("lastLaunchSite");
+            if (lastLaunchSite == null) return;
+            
+            // If it's available, set the launch site to the last used launch site.
+            foreach (var launchSite in _launchSiteList.Where(launchSite => launchSite == lastLaunchSite))
+            {
+                SetLaunchSite(launchSite);
+                break;
+            }
         }
 
         public void OnGUI()
@@ -78,9 +93,7 @@ namespace Kerbtown
                         string launchSite = _launchSiteList[index];
                         if (GUI.Button(new Rect(5, index*30 + 5, 220, 30), launchSite))
                         {
-                            EditorLogic.fetch.launchSiteName = launchSite;
-                            _currentLaunchSite = launchSite;
-                            Extensions.LogWarning("Set LaunchSite to: " + launchSite);
+                            SetLaunchSite(launchSite);
                             StartCoroutine(!_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
                         }
                     }
@@ -95,13 +108,21 @@ namespace Kerbtown
             if (_currentLaunchSite == "" || _currentLaunchSite == _defaultLaunchSite)
                 GUI.backgroundColor = new Color(0.5f, 0.65f, 0.27f, 1);
             else
-                GUI.backgroundColor = new Color(0.0f, 0.65f, 0.27f, 1);
+                GUI.backgroundColor = new Color(0.0f, 0.2f, 0.8f, 1);
 
 
             if (GUI.Button(_launchSiteButtonRect, _currentLaunchSite == "" ? "Select Launch Site" : _currentLaunchSite))
             {
                 StartCoroutine(!_alternatePosition ? ToggleMenu() : ToggleMenuAlt());
             }
+        }
+
+        private void SetLaunchSite(string launchSite)
+        {
+            _currentLaunchSite = launchSite;
+            EditorLogic.fetch.launchSiteName = launchSite;
+            Extensions.WriteSetting("lastLaunchSite",launchSite);
+            Extensions.LogWarning("Set LaunchSite to: " + launchSite);
         }
 
         private IEnumerator ToggleMenu()
