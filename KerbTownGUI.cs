@@ -38,8 +38,10 @@ namespace Kerbtown
 
         #endregion
 
-        private string _rPosition = "";
         private bool _showSavedLabel;
+        private int _speedMultiplier = 1;
+
+        private string _rPosition = "";
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
@@ -120,126 +122,146 @@ namespace Kerbtown
             bool reorient = false;
 
             GUI.BeginGroup(new Rect(10, 125, 380, 300));
-
             GUI.Label(new Rect(0, 0, 200, 22), "Object Placement Controls");
+
+            GUI.Label(new Rect(10, 25, 200, 22), "Transition Speed Multiplier:");
+            GUI.backgroundColor = _speedMultiplier == 1 ? Color.cyan : Color.white;
+            if (GUI.Button(new Rect(180, 25, 35, 22), "1x"))
+                _speedMultiplier = 1;
+
+            GUI.backgroundColor = _speedMultiplier == 5 ? Color.cyan : Color.white;
+            if (GUI.Button(new Rect(215, 25, 35, 22), "5x"))
+                _speedMultiplier = 5;
+
+            GUI.backgroundColor = _speedMultiplier == 10 ? Color.cyan : Color.white;
+            if (GUI.Button(new Rect(250, 25, 35, 22), "10x"))
+                _speedMultiplier = 10;
+
+            GUI.backgroundColor = _speedMultiplier == 20 ? Color.cyan : Color.white;
+            if (GUI.Button(new Rect(285, 25, 35, 22), "20x"))
+                _speedMultiplier = 20;
+
+            GUI.backgroundColor = _speedMultiplier == 50 ? Color.cyan : Color.white;
+            if (GUI.Button(new Rect(320, 25, 35, 22), "50x"))
+                _speedMultiplier = 50;
 
             #region X Position
 
             GUI.backgroundColor = Color.red;
-            GUI.Label(new Rect(10, 25, 100, 22), "X Position");
-            if (GUI.RepeatButton(new Rect(100, 25, 30, 22), "<<"))
+            GUI.Label(new Rect(10, 50, 100, 22), "X Position");
+            if (GUI.RepeatButton(new Rect(100, 50, 30, 22), "<<"))
             {
-                _currentSelectedObject.RadPosition.x--;
+                _currentSelectedObject.RadPosition.x -= (1*_speedMultiplier);
                 reorient = true;
             }
-            if (GUI.Button(new Rect(130, 25, 30, 22), "<"))
+            if (GUI.Button(new Rect(130, 50, 30, 22), "<"))
             {
                 _currentSelectedObject.RadPosition.x -= 0.5f;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(170, 25, 30, 22), ">"))
+            if (GUI.Button(new Rect(170, 50, 30, 22), ">"))
             {
                 _currentSelectedObject.RadPosition.x += 0.5f;
                 reorient = true;
             }
-            if (GUI.RepeatButton(new Rect(200, 25, 30, 22), ">>"))
+            if (GUI.RepeatButton(new Rect(200, 50, 30, 22), ">>"))
             {
-                _currentSelectedObject.RadPosition.x++;
+                _currentSelectedObject.RadPosition.x += (1*_speedMultiplier);
                 reorient = true;
             }
 
-            _xPosition = GUI.TextField(new Rect(240, 25, 140, 22), _xPosition);
+            _xPosition = GUI.TextField(new Rect(240, 50, 140, 22), _xPosition);
 
             #endregion
 
             #region Z Position
 
-            GUI.Label(new Rect(10, 75, 100, 22), "Z Position");
-            if (GUI.RepeatButton(new Rect(100, 75, 30, 22), "<<"))
+            GUI.Label(new Rect(10, 100, 100, 22), "Z Position");
+            if (GUI.RepeatButton(new Rect(100, 100, 30, 22), "<<"))
             {
-                _currentSelectedObject.RadPosition.z--;
+                _currentSelectedObject.RadPosition.z -= (1*_speedMultiplier);
                 reorient = true;
             }
-            if (GUI.Button(new Rect(130, 75, 30, 22), "<"))
+            if (GUI.Button(new Rect(130, 100, 30, 22), "<"))
             {
                 _currentSelectedObject.RadPosition.z -= 0.5f;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(170, 75, 30, 22), ">"))
+            if (GUI.Button(new Rect(170, 100, 30, 22), ">"))
             {
                 _currentSelectedObject.RadPosition.z += 0.5f;
                 reorient = true;
             }
-            if (GUI.RepeatButton(new Rect(200, 75, 30, 22), ">>"))
+            if (GUI.RepeatButton(new Rect(200, 100, 30, 22), ">>"))
             {
-                _currentSelectedObject.RadPosition.z++;
+                _currentSelectedObject.RadPosition.z += (1*_speedMultiplier);
                 reorient = true;
             }
 
-            _zPosition = GUI.TextField(new Rect(240, 75, 140, 22), _zPosition);
+            _zPosition = GUI.TextField(new Rect(240, 100, 140, 22), _zPosition);
 
             #endregion
 
             #region Y Position
 
             GUI.backgroundColor = Color.blue;
-            GUI.Label(new Rect(10, 50, 100, 22), "Y Position");
-            if (GUI.RepeatButton(new Rect(100, 50, 30, 22), "<<"))
+            GUI.Label(new Rect(10, 75, 100, 22), "Y Position");
+            if (GUI.RepeatButton(new Rect(100, 75, 30, 22), "<<"))
             {
-                _currentSelectedObject.RadPosition.y--;
+                _currentSelectedObject.RadPosition.y -= (1*_speedMultiplier);
                 reorient = true;
             }
-            if (GUI.Button(new Rect(130, 50, 30, 22), "<"))
+            if (GUI.Button(new Rect(130, 75, 30, 22), "<"))
             {
                 _currentSelectedObject.RadPosition.y -= 0.5f;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(170, 50, 30, 22), ">"))
+            if (GUI.Button(new Rect(170, 75, 30, 22), ">"))
             {
                 _currentSelectedObject.RadPosition.y += 0.5f;
                 reorient = true;
             }
-            if (GUI.RepeatButton(new Rect(200, 50, 30, 22), ">>"))
+            if (GUI.RepeatButton(new Rect(200, 75, 30, 22), ">>"))
             {
-                _currentSelectedObject.RadPosition.y++;
+                _currentSelectedObject.RadPosition.y += (1*_speedMultiplier);
                 reorient = true;
             }
 
-            _yPosition = GUI.TextField(new Rect(240, 50, 140, 22), _yPosition);
+            _yPosition = GUI.TextField(new Rect(240, 75, 140, 22), _yPosition);
 
             #endregion
 
             #region R Offset
 
             GUI.backgroundColor = Color.green;
-            GUI.Label(new Rect(10, 100, 100, 22), "Altitude");
-            if (GUI.RepeatButton(new Rect(100, 100, 30, 22), "<<"))
+            GUI.Label(new Rect(10, 125, 100, 22), "Altitude");
+            if (GUI.RepeatButton(new Rect(100, 125, 30, 22), "<<"))
             {
-                _currentSelectedObject.RadOffset--;
+                _currentSelectedObject.RadOffset -= (1*_speedMultiplier);
                 reorient = true;
             }
-            if (GUI.Button(new Rect(130, 100, 30, 22), "<"))
+            if (GUI.Button(new Rect(130, 125, 30, 22), "<"))
             {
                 _currentSelectedObject.RadOffset -= 0.5f;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(170, 100, 30, 22), ">"))
+            if (GUI.Button(new Rect(170, 125, 30, 22), ">"))
             {
                 _currentSelectedObject.RadOffset += 0.5f;
                 reorient = true;
             }
-            if (GUI.RepeatButton(new Rect(200, 100, 30, 22), ">>"))
+            if (GUI.RepeatButton(new Rect(200, 125, 30, 22), ">>"))
             {
-                _currentSelectedObject.RadOffset++;
+                _currentSelectedObject.RadOffset += (1*_speedMultiplier);
                 reorient = true;
             }
 
-            _rPosition = GUI.TextField(new Rect(240, 100, 140, 22), _rPosition);
+            _rPosition = GUI.TextField(new Rect(240, 125, 140, 22), _rPosition);
 
             #endregion
 
             GUI.backgroundColor = Color.yellow;
-            if (GUI.Button(new Rect(310, 125, 70, 22), "Update ^"))
+            if (GUI.Button(new Rect(310, 150, 70, 22), "Update ^"))
             {
                 float floatVal;
                 if (float.TryParse(_xPosition, out floatVal)) _currentSelectedObject.RadPosition.x = floatVal;
@@ -253,33 +275,33 @@ namespace Kerbtown
             #region Orientation
 
             GUI.backgroundColor = Color.white;
-            GUI.Label(new Rect(10, 125, 100, 22), "Orientation");
-            if (GUI.Button(new Rect(100, 125, 30, 22), "\x2191"))
+            GUI.Label(new Rect(10, 150, 100, 22), "Orientation");
+            if (GUI.Button(new Rect(100, 150, 30, 22), "\x2191"))
             {
                 _currentSelectedObject.Orientation = Vector3.up;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(130, 125, 30, 22), "\x2192"))
+            if (GUI.Button(new Rect(130, 150, 30, 22), "\x2192"))
             {
                 _currentSelectedObject.Orientation = Vector3.right;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(160, 125, 30, 22), "\x2193"))
+            if (GUI.Button(new Rect(160, 150, 30, 22), "\x2193"))
             {
                 _currentSelectedObject.Orientation = Vector3.down;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(190, 125, 30, 22), "\x2190"))
+            if (GUI.Button(new Rect(190, 150, 30, 22), "\x2190"))
             {
                 _currentSelectedObject.Orientation = Vector3.left;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(220, 125, 30, 22), "\x25cb"))
+            if (GUI.Button(new Rect(220, 150, 30, 22), "\x25cb"))
             {
                 _currentSelectedObject.Orientation = Vector3.forward;
                 reorient = true;
             }
-            if (GUI.Button(new Rect(250, 125, 30, 22), "\x25cf"))
+            if (GUI.Button(new Rect(250, 150, 30, 22), "\x25cf"))
             {
                 _currentSelectedObject.Orientation = Vector3.back;
                 reorient = true;
@@ -289,8 +311,8 @@ namespace Kerbtown
 
             #region Rotation
 
-            GUI.Label(new Rect(10, 150, 100, 22), "Rotation");
-            _currentSelectedObject.RotAngle = GUI.HorizontalSlider(new Rect(100, 155, 180, 20),
+            GUI.Label(new Rect(10, 175, 100, 22), "Rotation");
+            _currentSelectedObject.RotAngle = GUI.HorizontalSlider(new Rect(100, 180, 180, 20),
                 _currentSelectedObject.RotAngle, 0f, 359f);
 
             if (Math.Abs(_prevRotationAngle - _currentSelectedObject.RotAngle) > 0.001f)
@@ -439,8 +461,7 @@ namespace Kerbtown
 
         private void DrawCurrAssetWindow(int windowID)
         {
-            // ScrollView, temporary background.
-            GUI.Box(new Rect(10, 20, 580, 300), "");
+            GUI.Box(new Rect(10, 20, 580, 300), "");    // Background
 
             _currAssetScrollPos = GUI.BeginScrollView(new Rect(10, 20, 580, 300), _currAssetScrollPos,
                 new Rect(0, 0, 560, _instancedList.Values.Sum(list => list.Count)*25 + 5));
@@ -457,6 +478,9 @@ namespace Kerbtown
                     if (GUI.Button(new Rect(5, (i*25) + 5, 550, 22),
                         string.Format("{0} (ID: {1})", sObject.ModelUrl, sObject.ObjectID)))
                     {
+                        // Clear text fields.
+                        _xPosition = _yPosition = _zPosition = _rPosition = "";
+
                         if (itemMatches)
                         {
                             // Deselect
@@ -468,10 +492,11 @@ namespace Kerbtown
                         }
                         else
                         {
+                            // Select
                             if (_currentSelectedObject != null)
                                 _currentSelectedObject.Manipulate(false);
 
-                            _currentObjectID = sObject.ObjectID; // Select
+                            _currentObjectID = sObject.ObjectID;
                             _currentSelectedObject = sObject;
                             _currentSelectedObject.Manipulate(true);
                         }
@@ -490,8 +515,9 @@ namespace Kerbtown
             {
                 if (_currentSelectedObject != null)
                 {
+                    KtCamera.RestoreCameraParent();
                     //Destroy(_currentSelectedObject.StaticGameObject);
-                    Deactivate(_currentSelectedObject.PQSCityComponent);
+                    DestroyPQS(_currentSelectedObject.PQSCityComponent);
                     RemoveCurrentStaticObject(_currentSelectedObject.ModelUrl);
                 }
 
