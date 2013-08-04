@@ -42,10 +42,16 @@ namespace Kerbtown
             if (FlightGlobals.currentMainBody != null)
                 _currentBodyName = FlightGlobals.currentMainBody.bodyName; //todo remove redundant code
 
-            GameEvents.onDominantBodyChange.Add(BodyChangedCallback);
-            GameEvents.onFlightReady.Add(FlightReadyCallBack);
+            GameEvents.onDominantBodyChange.Add(BodyChangedCallback); 
+            GameEvents.onFlightReady.Add(FlightReadyCallBack); 
         }
 
+        private void OnDestroy()
+        {
+            Extensions.LogInfo("Removing script references.");
+            GameEvents.onDominantBodyChange.Remove(BodyChangedCallback);
+            GameEvents.onFlightReady.Remove(FlightReadyCallBack);
+        }
         // todo remove code clones
         private void InstantiateEasterEggs()
         {
@@ -168,6 +174,18 @@ namespace Kerbtown
         private void FlightReadyCallBack()
         {
             _currentBodyName = FlightGlobals.currentMainBody.bodyName;
+
+            // Temporary work around
+            // TODO Reimplement
+            foreach (StaticObject staticObject in _instancedList.SelectMany(i => i.Value))
+            {
+                //foreach (PQSCity.LODRange lodRange in staticObject.PQSCityComponent.lod)
+                //{
+                //    lodRange.SetActive(true);
+                //}
+                staticObject.PQSCityComponent.enabled = true;
+                staticObject.StaticGameObject.SetActive(true);
+            }
         }
 
         private void BodyChangedCallback(GameEvents.FromToAction<CelestialBody, CelestialBody> data)
@@ -291,8 +309,8 @@ namespace Kerbtown
             sObject.Latitude = GetLatitude(radialPosition);
             sObject.Longitude = GetLongitude(radialPosition);
 
-            GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl);
-
+            GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
+            
             // Set objects to layer 15 so that they collide correctly with Kerbals.
             SetLayerRecursively(staticGameObject, 15);
 
@@ -300,7 +318,7 @@ namespace Kerbtown
             staticGameObject.transform.parent = celestialPQS.transform;
 
             Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
-
+            
             _myLodRange = new PQSCity.LODRange
                           {
                               renderers =
@@ -325,6 +343,8 @@ namespace Kerbtown
 
             myCity.order = 100;
 
+            myCity.modEnabled = true;
+
             myCity.OnSetup();
             myCity.Orientate();
 
@@ -344,6 +364,8 @@ namespace Kerbtown
                     break;
             }
         }
+
+        #region Static Components
 
         private static void AddModule(ConfigNode configNode, GameObject staticGameObject)
         {
@@ -685,6 +707,8 @@ namespace Kerbtown
             }
         }
 
+        #endregion
+
         private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
         {
             // Only set to layer 'newLayerNumber' if the collider is not a trigger.
@@ -713,10 +737,12 @@ namespace Kerbtown
                 select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
         }
 
+/*
         private StaticObject GetStaticObjectFromID(string objectID)
         {
             return _instancedList[_currentModelUrl].FirstOrDefault(obFind => obFind.ObjectID == objectID);
         }
+*/
 
         private void RemoveCurrentStaticObject(string modelURL)
         {
@@ -725,6 +751,8 @@ namespace Kerbtown
 
         private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
         {
+            // 150000f is flightcamera max distance
+            // Space Center clips at about 80-90km
             return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
                 "");
         }
@@ -740,11 +768,20 @@ namespace Kerbtown
             return (float) (relativePosition.x/rpNormalized.x - _currentCelestialObj.PQSComponent.radius);
         }
 
-        private static void Deactivate(PQSCity pqsCityComponent)
+        private static void DestroyPQS(PQSCity pqsCityComponent)
         {
             foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
             {
                 lod.SetActive(false);
+
+                foreach (var lodren in lod.renderers)
+                {
+                    Destroy(lodren);
+                }
+                foreach (var lodobj in lod.objects)
+                {
+                    Destroy(lodobj);
+                }
             }
 
             pqsCityComponent.modEnabled = false;
@@ -827,12 +864,12 @@ namespace Kerbtown
                 NameID = string.Format("{0} ({1})", modelUrl.Substring(modelUrl.LastIndexOf('/') + 1), ObjectID);
             }
 
-            public void Manipulate(bool inactive)
+            public void Manipulate(bool objectInactive)
             {
-                Manipulate(inactive, XKCDColors.BlueyGrey);
+                Manipulate(objectInactive, XKCDColors.BlueyGrey);
             }
 
-            public void Manipulate(bool inactive, Color highlightColor)
+            public void Manipulate(bool objectInactive, Color highlightColor)
             {
                 if (StaticGameObject == null)
                 {
@@ -857,7 +894,7 @@ namespace Kerbtown
                 {
                     foreach (Collider collider in _colliderComponents)
                     {
-                        collider.enabled = !inactive;
+                        collider.enabled = !objectInactive;
                     }
                 }
 
@@ -870,14 +907,28 @@ namespace Kerbtown
                     Renderer[] rendererList = StaticGameObject.GetComponentsInChildren<Renderer>();
                     if (rendererList.Length == 0)
                     {
+                        Extensions.PostScreenMessage("[KerbTown] Active Vessel not within visibility range.");
                         Extensions.LogWarning(NameID + " has no renderer components.");
                         return;
                     }
                     _rendererComponents = new List<Renderer>(rendererList);
                 }
 
-                if (!inactive)
+                if (!objectInactive) // Deactivate.
+                {
                     highlightColor = new Color(0, 0, 0, 0);
+
+                    KtCamera.RestoreCameraParent();
+                }
+                else // Activate
+                {
+                    if (Vector3.Distance(PQSCityComponent.sphere.transform.position, PQSCityComponent.transform.position) >=
+                        PQSCityComponent.lod[0].visibleRange)
+                        KtCamera.SetCameraParent(StaticGameObject.transform);
+                    else
+                        Extensions.PostScreenMessage(
+                            "[KerbTown] Ignoring camera switch. Static object is not within the visible range of your active vessel.");
+                }
 
                 foreach (Renderer renderer in _rendererComponents)
                 {
@@ -926,49 +977,6 @@ namespace Kerbtown
                         "NameID: {0}, ObjectID: {1}, CelestialBodyName: {2}, ModelUrl: {3}, ConfigUrl: {4}, RPos: {5}",
                         NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
             }
-        }
-    }
-
-    public static class Extensions
-    {
-        public static void LogError(string message)
-        {
-            Debug.LogError("KerbTown: " + message);
-        }
-
-        public static void LogWarning(string message)
-        {
-            Debug.LogWarning("KerbTown: " + message);
-        }
-
-        public static void LogInfo(string message)
-        {
-            Debug.Log("KerbTown: " + message);
-        }
-
-        public static int SecondLastIndex(this string str, char searchCharacter)
-        {
-            int lastIndex = str.LastIndexOf(searchCharacter);
-
-            if (lastIndex != -1)
-
-            {
-                return str.LastIndexOf(searchCharacter, lastIndex - 1);
-            }
-
-            return -1;
-        }
-
-        public static int SecondLastIndex(this string str, string searchString)
-        {
-            int lastIndex = str.LastIndexOf(searchString, StringComparison.Ordinal);
-
-            if (lastIndex != -1)
-            {
-                return str.LastIndexOf(searchString, lastIndex - 1, StringComparison.Ordinal);
-            }
-
-            return -1;
         }
     }
 }
