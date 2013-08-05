@@ -100,7 +100,7 @@ namespace Kerbtown.EEComponents
             rb.interpolation = RigidbodyInterpolation.Interpolate;
 
             rb.isKinematic = false; // redundant
-            rb.AddForce(Vector3.up*0.01f);
+            //rb.AddForce(Vector3.up*0.001f,ForceMode.Impulse);
 
             StartCoroutine(RemoveRigidBodyPhysicsOnSleep(PlankGameObject));
 

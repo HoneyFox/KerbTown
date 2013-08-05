@@ -25,14 +25,9 @@ namespace Kerbtown
         
         public new void OnUpdateFinished()
         {
-            if (!modEnabled) return;
+            if (!modEnabled)
+                return;
 
-            //float currentDistance = Vector3.Distance(sphere.target.transform.position, transform.position);
-            //for (int i = lod.Length - 1; i >= 0; i--)
-            //{
-            //    lod[i].SetActive(currentDistance < lod[i].visibleRange);
-            //}
-            
             base.OnUpdateFinished();
         }
 

@@ -52,9 +52,17 @@ namespace Kerbtown
             Extensions.LogInfo("Removing script references.");
             GameEvents.onDominantBodyChange.Remove(BodyChangedCallback);
             GameEvents.onFlightReady.Remove(FlightReadyCallBack);
+
+            foreach (var i in _instancedList.SelectMany(ins => ins.Value))
+                DestroyPQS(i.PQSCityComponent);
+            
+
+            foreach (var i in _eeInstances.SelectMany(ins => ins.Value))
+                DestroyPQS(i.PQSCityComponent);
+            
+            KtCamera.RestoreCameraParent();
         }
 
-        // todo remove code clones
         private void InstantiateEasterEggs()
         {
             var configDict = new Dictionary<string, string>
@@ -183,14 +191,6 @@ namespace Kerbtown
         private void FlightReadyCallBack()
         {
             _currentBodyName = FlightGlobals.currentMainBody.bodyName;
-
-            // Temporary work around
-            // TODO Reimplement
-            foreach (StaticObject staticObject in _instancedList.SelectMany(i => i.Value))
-                staticObject.StaticGameObject.SetActive(true);
-
-            foreach (StaticObject staticObject in _eeInstances.SelectMany(i => i.Value))
-                staticObject.StaticGameObject.SetActive(true);
         }
 
         private void BodyChangedCallback(GameEvents.FromToAction<CelestialBody, CelestialBody> data)
@@ -317,7 +317,7 @@ namespace Kerbtown
             sObject.Longitude = GetLongitude(radialPosition);
 
             GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
-
+            staticGameObject.SetActive(true);
             // Set objects to layer 15 so that they collide correctly with Kerbals.
             SetLayerRecursively(staticGameObject, 15);
 
@@ -326,12 +326,15 @@ namespace Kerbtown
 
             Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
 
+            List<GameObject> list =
+                (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
+
+
             _myLodRange = new PQSCity.LODRange
                           {
-                              renderers =
-                                  (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject)
-                                  .ToArray(),
-                              objects = new[] {staticGameObject},
+                              renderers = list.ToArray(),
+                              objects = new GameObject[0],
+                              //new[] {staticGameObject},  // Change to GameObject children.
                               visibleRange = visibilityRange
                           };
 
@@ -339,15 +342,17 @@ namespace Kerbtown
             var myCity = staticGameObject.AddComponent<PQSCityEx>();
 
             myCity.lod = new[] {_myLodRange};
+
             myCity.frameDelta = 1;
             myCity.repositionToSphere = true;
+            myCity.repositionToSphereSurface = false;
             myCity.repositionRadial = radialPosition;
             myCity.repositionRadiusOffset = radiusOffset;
             myCity.reorientFinalAngle = localRotationAngle;
             myCity.reorientToSphere = true;
             myCity.reorientInitialUp = orientDirection;
             myCity.sphere = celestialPQS;
-
+            
             myCity.order = 100;
 
             myCity.modEnabled = true;
@@ -355,7 +360,7 @@ namespace Kerbtown
             myCity.OnSetup();
             myCity.Orientate();
 
-            staticGameObject.SetActive(true);
+            
 
             sObject.PQSCityComponent = myCity;
             sObject.StaticGameObject = staticGameObject;
@@ -451,8 +456,11 @@ namespace Kerbtown
             //pqsCityComponent.RebuildSphere();
 
             GameObject gobj = pqsCityComponent.gameObject;
+            
+            gobj.transform.parent = null;
+
             Destroy(pqsCityComponent);
-            Destroy(gobj);
+            DestroyImmediate(gobj);
         }
 
         #region Static Components
