@@ -27,6 +27,7 @@ namespace Kerbtown
         private string _currentModelUrl = "";
         private StaticObject _currentSelectedObject;
 
+        private Dictionary<string, List<StaticObject>> _eeInstances;
         private Dictionary<string, List<StaticObject>> _instancedList;
         private Dictionary<string, string> _modelList;
 
@@ -42,8 +43,8 @@ namespace Kerbtown
             if (FlightGlobals.currentMainBody != null)
                 _currentBodyName = FlightGlobals.currentMainBody.bodyName; //todo remove redundant code
 
-            GameEvents.onDominantBodyChange.Add(BodyChangedCallback); 
-            GameEvents.onFlightReady.Add(FlightReadyCallBack); 
+            GameEvents.onDominantBodyChange.Add(BodyChangedCallback);
+            GameEvents.onFlightReady.Add(FlightReadyCallBack);
         }
 
         private void OnDestroy()
@@ -52,6 +53,7 @@ namespace Kerbtown
             GameEvents.onDominantBodyChange.Remove(BodyChangedCallback);
             GameEvents.onFlightReady.Remove(FlightReadyCallBack);
         }
+
         // todo remove code clones
         private void InstantiateEasterEggs()
         {
@@ -59,6 +61,8 @@ namespace Kerbtown
                              {
                                  {"Hubs/Static/KerbTown/EE01/EE01", "MushroomCave"}
                              };
+
+            _eeInstances = new Dictionary<string, List<StaticObject>>(configDict.Count);
 
             foreach (var configItem in configDict)
             {
@@ -88,6 +92,11 @@ namespace Kerbtown
 
                     var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
                         visRange, modelUrl, configItem.Key, celestialBodyName, configItem.Value);
+
+                    if (_eeInstances.ContainsKey(modelUrl))
+                        _instancedList[modelUrl].Add(staticObject);
+                    else
+                        _eeInstances.Add(modelUrl, new List<StaticObject> {staticObject});
 
                     InstantiateStatic(
                         (_currentCelestialObj = GetCelestialObject(staticObject.CelestialBodyName)).PQSComponent,
@@ -178,14 +187,10 @@ namespace Kerbtown
             // Temporary work around
             // TODO Reimplement
             foreach (StaticObject staticObject in _instancedList.SelectMany(i => i.Value))
-            {
-                //foreach (PQSCity.LODRange lodRange in staticObject.PQSCityComponent.lod)
-                //{
-                //    lodRange.SetActive(true);
-                //}
-                staticObject.PQSCityComponent.enabled = true;
                 staticObject.StaticGameObject.SetActive(true);
-            }
+
+            foreach (StaticObject staticObject in _eeInstances.SelectMany(i => i.Value))
+                staticObject.StaticGameObject.SetActive(true);
         }
 
         private void BodyChangedCallback(GameEvents.FromToAction<CelestialBody, CelestialBody> data)
@@ -205,10 +210,12 @@ namespace Kerbtown
             }
         }
 
+/*
         private static Vector3 GetLocalPosition(CelestialBody celestialObject, double latitude, double longitude)
         {
             return Vector3.zero;
         }
+*/
 
         private static double GetLongitude(Vector3d radialPosition)
         {
@@ -310,7 +317,7 @@ namespace Kerbtown
             sObject.Longitude = GetLongitude(radialPosition);
 
             GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
-            
+
             // Set objects to layer 15 so that they collide correctly with Kerbals.
             SetLayerRecursively(staticGameObject, 15);
 
@@ -318,7 +325,7 @@ namespace Kerbtown
             staticGameObject.transform.parent = celestialPQS.transform;
 
             Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
-            
+
             _myLodRange = new PQSCity.LODRange
                           {
                               renderers =
@@ -363,6 +370,89 @@ namespace Kerbtown
                     AddModuleComponents(staticGameObject, sObject.ConfigURL);
                     break;
             }
+        }
+
+        private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
+        {
+            // Only set to layer 'newLayerNumber' if the collider is not a trigger.
+            if ((sGameObject.collider != null &&
+                 sGameObject.collider.enabled &&
+                 !sGameObject.collider.isTrigger) || sGameObject.collider == null)
+            {
+                sGameObject.layer = newLayerNumber;
+            }
+
+            foreach (Transform child in sGameObject.transform)
+            {
+                SetLayerRecursively(child.gameObject, newLayerNumber);
+            }
+        }
+
+        private CelestialObject GetCelestialObject(string celestialName)
+        {
+            if (_currentCelestialObj != null &&
+                (_currentCelestialObj.CelestialBodyComponent != null &&
+                 _currentCelestialObj.CelestialBodyComponent.bodyName == celestialName))
+                return _currentCelestialObj;
+
+            return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
+                where gameObjectInScene.name == celestialName
+                select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
+        }
+
+/*
+        private StaticObject GetStaticObjectFromID(string objectID)
+        {
+            return _instancedList[_currentModelUrl].FirstOrDefault(obFind => obFind.ObjectID == objectID);
+        }
+*/
+
+        private void RemoveCurrentStaticObject(string modelURL)
+        {
+            _instancedList[modelURL].Remove(_currentSelectedObject);
+        }
+
+        private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
+        {
+            // 150000f is flightcamera max distance
+            // Space Center clips at about 80-90km
+            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
+                "");
+        }
+
+        private float GetSurfaceRadiusOffset()
+        {
+            //todo change to activevessel.altitude after further investigation or just to surface height..
+
+            Vector3d relativePosition =
+                _currentCelestialObj.PQSComponent.GetRelativePosition(FlightGlobals.ActiveVessel.GetWorldPos3D());
+            Vector3d rpNormalized = relativePosition.normalized;
+
+            return (float) (relativePosition.x/rpNormalized.x - _currentCelestialObj.PQSComponent.radius);
+        }
+
+        private static void DestroyPQS(PQSCity pqsCityComponent)
+        {
+            foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
+            {
+                lod.SetActive(false);
+
+                foreach (GameObject lodren in lod.renderers)
+                {
+                    Destroy(lodren);
+                }
+                foreach (GameObject lodobj in lod.objects)
+                {
+                    Destroy(lodobj);
+                }
+            }
+
+            pqsCityComponent.modEnabled = false;
+            //pqsCityComponent.RebuildSphere();
+
+            GameObject gobj = pqsCityComponent.gameObject;
+            Destroy(pqsCityComponent);
+            Destroy(gobj);
         }
 
         #region Static Components
@@ -709,89 +799,6 @@ namespace Kerbtown
 
         #endregion
 
-        private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
-        {
-            // Only set to layer 'newLayerNumber' if the collider is not a trigger.
-            if ((sGameObject.collider != null &&
-                 sGameObject.collider.enabled &&
-                 !sGameObject.collider.isTrigger) || sGameObject.collider == null)
-            {
-                sGameObject.layer = newLayerNumber;
-            }
-
-            foreach (Transform child in sGameObject.transform)
-            {
-                SetLayerRecursively(child.gameObject, newLayerNumber);
-            }
-        }
-
-        private CelestialObject GetCelestialObject(string celestialName)
-        {
-            if (_currentCelestialObj != null &&
-                (_currentCelestialObj.CelestialBodyComponent != null &&
-                 _currentCelestialObj.CelestialBodyComponent.bodyName == celestialName))
-                return _currentCelestialObj;
-
-            return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
-                where gameObjectInScene.name == celestialName
-                select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
-        }
-
-/*
-        private StaticObject GetStaticObjectFromID(string objectID)
-        {
-            return _instancedList[_currentModelUrl].FirstOrDefault(obFind => obFind.ObjectID == objectID);
-        }
-*/
-
-        private void RemoveCurrentStaticObject(string modelURL)
-        {
-            _instancedList[modelURL].Remove(_currentSelectedObject);
-        }
-
-        private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
-        {
-            // 150000f is flightcamera max distance
-            // Space Center clips at about 80-90km
-            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
-                "");
-        }
-
-        private float GetSurfaceRadiusOffset()
-        {
-            //todo change to activevessel.altitude after further investigation or just to surface height..
-
-            Vector3d relativePosition =
-                _currentCelestialObj.PQSComponent.GetRelativePosition(FlightGlobals.ActiveVessel.GetWorldPos3D());
-            Vector3d rpNormalized = relativePosition.normalized;
-
-            return (float) (relativePosition.x/rpNormalized.x - _currentCelestialObj.PQSComponent.radius);
-        }
-
-        private static void DestroyPQS(PQSCity pqsCityComponent)
-        {
-            foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
-            {
-                lod.SetActive(false);
-
-                foreach (var lodren in lod.renderers)
-                {
-                    Destroy(lodren);
-                }
-                foreach (var lodobj in lod.objects)
-                {
-                    Destroy(lodobj);
-                }
-            }
-
-            pqsCityComponent.modEnabled = false;
-            //pqsCityComponent.RebuildSphere();
-
-            GameObject gobj = pqsCityComponent.gameObject;
-            Destroy(pqsCityComponent);
-            Destroy(gobj);
-        }
-
         private class CelestialObject
         {
             public readonly CelestialBody CelestialBodyComponent;
@@ -922,7 +929,8 @@ namespace Kerbtown
                 }
                 else // Activate
                 {
-                    if (Vector3.Distance(PQSCityComponent.sphere.transform.position, PQSCityComponent.transform.position) >=
+                    if (
+                        Vector3.Distance(PQSCityComponent.sphere.transform.position, PQSCityComponent.transform.position) >=
                         PQSCityComponent.lod[0].visibleRange)
                         KtCamera.SetCameraParent(StaticGameObject.transform);
                     else
