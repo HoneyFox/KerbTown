@@ -51,6 +51,7 @@
     <Compile Include="EEComponents\KerbalSeatEx.cs" />
     <Compile Include="EEComponents\MainMenu.cs" />
     <Compile Include="EEComponents\MushroomCave.cs" />
+    <Compile Include="EEComponents\PurplePathway.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="KerbTown.cs" />
     <Compile Include="KtCamera.cs" />

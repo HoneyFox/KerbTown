@@ -440,7 +440,7 @@ namespace Kerbtown
                 newObject.CelestialBodyName = _currentCelestialObj.CelestialBodyComponent.name;
 
                 // _currentCelestialObj assigned above.
-                InstantiateStatic(_currentCelestialObj.PQSComponent, newObject);
+                InstantiateStatic(_currentCelestialObj.PQSComponent, newObject, true);
 
                 // Remove previously highlighted object if there is one.
                 if (_currentSelectedObject != null) _currentSelectedObject.Manipulate(false);

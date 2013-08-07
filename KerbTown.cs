@@ -63,11 +63,167 @@ namespace Kerbtown
             KtCamera.RestoreCameraParent();
         }
 
+        private void GenerateModelLists()
+        {
+            UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
+            _instancedList = new Dictionary<string, List<StaticObject>>();
+            _modelList = new Dictionary<string, string>();
+
+            foreach (UrlDir.UrlConfig staticUrlConfig in staticConfigs)
+            {
+                if (staticUrlConfig.url.IndexOf("KerbTown/EE", StringComparison.OrdinalIgnoreCase) > -1)
+                    continue;
+
+                string model = staticUrlConfig.config.GetValue("mesh");
+                if (string.IsNullOrEmpty(model))
+                {
+                    Extensions.LogError("Missing 'mesh' parameter for " + staticUrlConfig.url);
+                    continue;
+                }
+
+                model = model.Substring(0, model.LastIndexOf('.'));
+                string modelUrl = staticUrlConfig.url.Substring(0, staticUrlConfig.url.SecondLastIndex('/')) + "/" +
+                                  model;
+
+                //Extensions.LogWarning("Model url: " + modelUrl);
+                //Extensions.LogWarning("Config url: " + staticUrlConfig.url);
+                _modelList.Add(modelUrl, staticUrlConfig.url);
+
+                // If we already have previous instances of the object, fill up the lists so that KerbTown can start instantiating them
+                if (!staticUrlConfig.config.HasNode("Instances"))
+                    continue;
+
+                foreach (ConfigNode ins in staticUrlConfig.config.GetNodes("Instances"))
+                {
+                    Vector3 radPosition = ConfigNode.ParseVector3(ins.GetValue("RadialPosition"));
+                    float rotAngle = float.Parse(ins.GetValue("RotationAngle"));
+                    float radOffset = float.Parse(ins.GetValue("RadiusOffset"));
+                    Vector3 orientation = ConfigNode.ParseVector3(ins.GetValue("Orientation"));
+                    float visRange = float.Parse(ins.GetValue("VisibilityRange"));
+                    string celestialBodyName = ins.GetValue("CelestialBody");
+                    string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
+
+                    if (_instancedList.ContainsKey(modelUrl))
+                    {
+                        _instancedList[modelUrl].Add(
+                            new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
+                    }
+                    else
+                    {
+                        _instancedList.Add(modelUrl,
+                            new List<StaticObject>
+                            {
+                                new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName)
+                            });
+                    }
+                }
+            }
+        }
+
+        private void InstantiateStatic(PQS celestialPQS, StaticObject sObject, bool freshObject = false)
+        {
+            float visibilityRange = sObject.VisRange;
+            Vector3 orientDirection = sObject.Orientation;
+            float localRotationAngle = sObject.RotAngle;
+            float radiusOffset = sObject.RadOffset;
+            Vector3 radialPosition = sObject.RadPosition;
+            string modelUrl = sObject.ModelUrl;
+
+            if (radialPosition == Vector3.zero)
+            {
+                radialPosition =
+                    _currentCelestialObj.CelestialBodyComponent.transform.InverseTransformPoint(
+                        FlightGlobals.ActiveVessel.transform.position);
+
+                sObject.RadPosition = radialPosition;
+            }
+
+            if (orientDirection == Vector3.zero)
+            {
+                orientDirection = Vector3.up;
+                sObject.Orientation = orientDirection;
+            }
+
+            sObject.Latitude = GetLatitude(radialPosition);
+            sObject.Longitude = GetLongitude(radialPosition);
+
+            GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
+            staticGameObject.SetActive(true);
+            // Set objects to layer 15 so that they collide correctly with Kerbals.
+            SetLayerRecursively(staticGameObject, 15);
+
+            // Set the parent object to the celestial component's GameObject.
+            staticGameObject.transform.parent = celestialPQS.transform;
+
+            Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
+
+            List<GameObject> rendererList =
+                (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
+
+
+            _myLodRange = new PQSCity.LODRange
+            {
+                renderers = rendererList.ToArray(),
+                objects = new GameObject[0],
+                //new[] {staticGameObject},  // Change to GameObject children.
+                visibleRange = visibilityRange
+            };
+
+            //var myCity = staticGameObject.AddComponent<PQSCity>();
+            var myCity = staticGameObject.AddComponent<PQSCityEx>();
+
+            myCity.lod = new[] { _myLodRange };
+
+            myCity.frameDelta = 1;
+            myCity.repositionToSphere = true;
+            myCity.repositionToSphereSurface = false;
+            myCity.repositionRadial = radialPosition;
+            myCity.repositionRadiusOffset = radiusOffset;
+            myCity.reorientFinalAngle = localRotationAngle;
+            myCity.reorientToSphere = true;
+            myCity.reorientInitialUp = orientDirection;
+            myCity.sphere = celestialPQS;
+
+            myCity.order = 100;
+
+            myCity.modEnabled = true;
+
+            myCity.OnSetup();
+            myCity.Orientate();
+
+            if (freshObject)
+            {
+                foreach (var renObj in rendererList)
+                    renObj.renderer.enabled = true;
+            }
+
+            sObject.PQSCityComponent = myCity;
+            sObject.StaticGameObject = staticGameObject;
+
+            switch (sObject.ObjectID)
+            {
+                case "MushroomCave":
+                    AddNativeComponent(staticGameObject, typeof(MushroomCave));
+                    break;
+
+                case "PurplePathway":
+                    AddNativeComponent(staticGameObject, typeof(PurplePathway));
+                    break;
+
+                default:
+                    AddModuleComponents(staticGameObject, sObject.ConfigURL);
+                    break;
+            }
+        }
+
         private void InstantiateEasterEggs()
         {
             var configDict = new Dictionary<string, string>
                              {
-                                 {"Hubs/Static/KerbTown/EE01/EE01", "MushroomCave"}
+                                 {"Hubs/Static/KerbTown/EE01/EE01", "MushroomCave"},
+                                 {"Hubs/Static/KerbTown/EE02/EE02", "PurplePathway"}
                              };
 
             _eeInstances = new Dictionary<string, List<StaticObject>>(configDict.Count);
@@ -228,153 +384,6 @@ namespace Kerbtown
         {
             double latitude = Math.Asin(radialPosition.normalized.y)*57.295780181884766;
             return (!double.IsNaN(latitude) ? latitude : 0.0);
-        }
-
-        private void GenerateModelLists()
-        {
-            UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
-            _instancedList = new Dictionary<string, List<StaticObject>>();
-            _modelList = new Dictionary<string, string>();
-
-            foreach (UrlDir.UrlConfig staticUrlConfig in staticConfigs)
-            {
-                if (staticUrlConfig.url.IndexOf("KerbTown/EE", StringComparison.OrdinalIgnoreCase) > -1)
-                    continue;
-
-                string model = staticUrlConfig.config.GetValue("mesh");
-                if (string.IsNullOrEmpty(model))
-                {
-                    Extensions.LogError("Missing 'mesh' parameter for " + staticUrlConfig.url);
-                    continue;
-                }
-
-                model = model.Substring(0, model.LastIndexOf('.'));
-                string modelUrl = staticUrlConfig.url.Substring(0, staticUrlConfig.url.SecondLastIndex('/')) + "/" +
-                                  model;
-
-                //Extensions.LogWarning("Model url: " + modelUrl);
-                //Extensions.LogWarning("Config url: " + staticUrlConfig.url);
-                _modelList.Add(modelUrl, staticUrlConfig.url);
-
-                // If we already have previous instances of the object, fill up the lists so that KerbTown can start instantiating them
-                if (!staticUrlConfig.config.HasNode("Instances"))
-                    continue;
-
-                foreach (ConfigNode ins in staticUrlConfig.config.GetNodes("Instances"))
-                {
-                    Vector3 radPosition = ConfigNode.ParseVector3(ins.GetValue("RadialPosition"));
-                    float rotAngle = float.Parse(ins.GetValue("RotationAngle"));
-                    float radOffset = float.Parse(ins.GetValue("RadiusOffset"));
-                    Vector3 orientation = ConfigNode.ParseVector3(ins.GetValue("Orientation"));
-                    float visRange = float.Parse(ins.GetValue("VisibilityRange"));
-                    string celestialBodyName = ins.GetValue("CelestialBody");
-                    string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
-
-                    if (_instancedList.ContainsKey(modelUrl))
-                    {
-                        _instancedList[modelUrl].Add(
-                            new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
-                    }
-                    else
-                    {
-                        _instancedList.Add(modelUrl,
-                            new List<StaticObject>
-                            {
-                                new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName)
-                            });
-                    }
-                }
-            }
-        }
-
-        private void InstantiateStatic(PQS celestialPQS, StaticObject sObject)
-        {
-            float visibilityRange = sObject.VisRange;
-            Vector3 orientDirection = sObject.Orientation;
-            float localRotationAngle = sObject.RotAngle;
-            float radiusOffset = sObject.RadOffset;
-            Vector3 radialPosition = sObject.RadPosition;
-            string modelUrl = sObject.ModelUrl;
-
-            if (radialPosition == Vector3.zero)
-            {
-                radialPosition =
-                    _currentCelestialObj.CelestialBodyComponent.transform.InverseTransformPoint(
-                        FlightGlobals.ActiveVessel.transform.position);
-
-                sObject.RadPosition = radialPosition;
-            }
-
-            if (orientDirection == Vector3.zero)
-            {
-                orientDirection = Vector3.up;
-                sObject.Orientation = orientDirection;
-            }
-
-            sObject.Latitude = GetLatitude(radialPosition);
-            sObject.Longitude = GetLongitude(radialPosition);
-
-            GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
-            staticGameObject.SetActive(true);
-            // Set objects to layer 15 so that they collide correctly with Kerbals.
-            SetLayerRecursively(staticGameObject, 15);
-
-            // Set the parent object to the celestial component's GameObject.
-            staticGameObject.transform.parent = celestialPQS.transform;
-
-            Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
-
-            List<GameObject> list =
-                (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
-
-
-            _myLodRange = new PQSCity.LODRange
-                          {
-                              renderers = list.ToArray(),
-                              objects = new GameObject[0],
-                              //new[] {staticGameObject},  // Change to GameObject children.
-                              visibleRange = visibilityRange
-                          };
-
-            //var myCity = staticGameObject.AddComponent<PQSCity>();
-            var myCity = staticGameObject.AddComponent<PQSCityEx>();
-
-            myCity.lod = new[] {_myLodRange};
-
-            myCity.frameDelta = 1;
-            myCity.repositionToSphere = true;
-            myCity.repositionToSphereSurface = false;
-            myCity.repositionRadial = radialPosition;
-            myCity.repositionRadiusOffset = radiusOffset;
-            myCity.reorientFinalAngle = localRotationAngle;
-            myCity.reorientToSphere = true;
-            myCity.reorientInitialUp = orientDirection;
-            myCity.sphere = celestialPQS;
-            
-            myCity.order = 100;
-
-            myCity.modEnabled = true;
-
-            myCity.OnSetup();
-            myCity.Orientate();
-
-            
-
-            sObject.PQSCityComponent = myCity;
-            sObject.StaticGameObject = staticGameObject;
-
-            switch (sObject.ObjectID)
-            {
-                case "MushroomCave":
-                    AddNativeComponent(staticGameObject, typeof (MushroomCave));
-                    break;
-
-                default:
-                    AddModuleComponents(staticGameObject, sObject.ConfigURL);
-                    break;
-            }
         }
 
         private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
