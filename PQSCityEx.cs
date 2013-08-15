@@ -1,6 +1,7 @@
 ﻿/* LICENSE
- * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
- * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ * This source code is copyrighted.
+ * All rights reserved.
+ * Copyright © Ryan Irecki 2013
  */
 
 using UnityEngine;
@@ -9,6 +10,36 @@ namespace Kerbtown
 {
     internal class PQSCityEx : PQSCity
     {
+        public StaticObject StaticObjectRef;
+
+        void OnEnable()
+        {
+            // Repeat this action once every second, rather than every frame in OnUpdateFinished().
+            InvokeRepeating("CalcVisibilityActivity", 0, 1);
+        }
+
+        void OnDisable()
+        {
+            CancelInvoke("CalcVisibilityActivity");
+        }
+
+        public void CalcVisibilityActivity()
+        {
+            // TODO Decide on implementation and remove this code.
+            if (StaticObjectRef == null || StaticObjectRef.ModuleList == null) return;
+            
+            foreach (var mod in StaticObjectRef.ModuleList)
+            {
+                if (mod.KeepAlive) continue;
+
+                mod.ModuleComponent.enabled =
+                    (Vector3.Distance(sphere.target.transform.position, transform.position) <
+                     StaticObjectRef.VisRange);
+
+                //print(mod.ModuleComponent.name + ", " + mod.ModuleComponent.enabled);
+            }
+        }
+
         public new void OnSphereActive()
         {
             if (!modEnabled) return;
@@ -18,9 +49,27 @@ namespace Kerbtown
 
         public new void OnSphereInactive()
         {
-            if (!modEnabled) return;
+            if (!modEnabled) 
+                return;
+
+            // Do not disable if the player has decided this is a permanent object.
+            if (StaticObjectRef != null && StaticObjectRef.IsSpaceActive) return;
 
             base.OnSphereInactive();
+        }
+
+        public new void OnSphereReset()
+        {
+            if (!modEnabled) return;
+
+            base.OnSphereReset();
+        }
+
+        public new void OnSphereStart()
+        {
+            if (!modEnabled) return;
+
+            base.OnSphereStart();
         }
         
         public new void OnUpdateFinished()
@@ -29,13 +78,6 @@ namespace Kerbtown
                 return;
 
             base.OnUpdateFinished();
-        }
-
-        public new void OnSphereReset()
-        {
-            if (!modEnabled) return;
-
-            base.OnSphereReset();
         }
     }
 }

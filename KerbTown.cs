@@ -1,6 +1,18 @@
 ﻿/* LICENSE
- * This work is licensed under the Creative Commons Attribution-NoDerivs 3.0 Unported License. 
- * To view a copy of this license, visit http://creativecommons.org/licenses/by-nd/3.0/ or send a letter to Creative Commons, 444 Castro Street, Suite 900, Mountain View, California, 94041, USA.
+ * This source code is copyrighted.
+ * All rights reserved.
+ * Copyright © Ryan Irecki 2013
+ */
+
+/* Public TODO List
+        Add support for resources.
+        Add generic module for instantiating static objects from parts when event criteria is met (i.e. button).
+        Add local database for static objects to enable reloading without reloading the entire KSP Game Database.
+        Add per-vessel launch site saves.
+        Add per-save options for instances / editing sessions.
+        Add generic movie playback component for cinematic objects.
+        Add support for KSP Prefabs, if permitted.
+        Add generic pick-up item module and inventory system. 
  */
 
 using System;
@@ -13,8 +25,6 @@ using System.Reflection;
 using Kerbtown.EEComponents;
 using Kerbtown.NativeModules;
 using UnityEngine;
-using Debug = UnityEngine.Debug;
-using Random = UnityEngine.Random;
 
 namespace Kerbtown
 {
@@ -27,7 +37,7 @@ namespace Kerbtown
         private string _currentModelUrl = "";
         private StaticObject _currentSelectedObject;
 
-        private Dictionary<string, List<StaticObject>> _eeInstances;
+        private Dictionary<string, List<StaticObject>> _eeInstanceList;
         private Dictionary<string, List<StaticObject>> _instancedList;
         private Dictionary<string, string> _modelList;
 
@@ -43,23 +53,46 @@ namespace Kerbtown
             if (FlightGlobals.currentMainBody != null)
                 _currentBodyName = FlightGlobals.currentMainBody.bodyName; //todo remove redundant code
 
-            GameEvents.onDominantBodyChange.Add(BodyChangedCallback);
-            GameEvents.onFlightReady.Add(FlightReadyCallBack);
+            GameEvents.onDominantBodyChange.Add(OnDominantBodyChangeCallback);
+            GameEvents.onFlightReady.Add(OnFlightReadyCallback);
+            GameEvents.onGameStateSaved.Add(OnSave);
+            GameEvents.onGameStateCreated.Add(OnLoad);
+        }
+
+        private void OnLoad(Game data)
+        {
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnLoad(data);
+            }
+        }
+
+        private void OnSave(Game data)
+        {
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnSave(data);
+            }
         }
 
         private void OnDestroy()
         {
-            Extensions.LogInfo("Removing script references.");
-            GameEvents.onDominantBodyChange.Remove(BodyChangedCallback);
-            GameEvents.onFlightReady.Remove(FlightReadyCallBack);
+            Extensions.LogInfo("Removing script references ..");
 
-            foreach (var i in _instancedList.SelectMany(ins => ins.Value))
-                DestroyPQS(i.PQSCityComponent);
-            
+            GameEvents.onDominantBodyChange.Remove(OnDominantBodyChangeCallback);
+            GameEvents.onFlightReady.Remove(OnFlightReadyCallback);
+            GameEvents.onGameStateSaved.Remove(OnSave);
+            GameEvents.onGameStateCreated.Remove(OnLoad);
 
-            foreach (var i in _eeInstances.SelectMany(ins => ins.Value))
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnUnload();
                 DestroyPQS(i.PQSCityComponent);
-            
+            }
+
+            foreach (StaticObject i in _eeInstanceList.SelectMany(ins => ins.Value))
+                DestroyPQS(i.PQSCityComponent);
+
             KtCamera.RestoreCameraParent();
         }
 
@@ -71,7 +104,12 @@ namespace Kerbtown
 
             foreach (UrlDir.UrlConfig staticUrlConfig in staticConfigs)
             {
-                if (staticUrlConfig.url.IndexOf("KerbTown/EE", StringComparison.OrdinalIgnoreCase) > -1)
+                if (staticUrlConfig.url.IndexOf("KerbTown/EE", StringComparison.OrdinalIgnoreCase) >= 0)
+                    continue;
+
+                // Skip adding the object if it is not yielding.
+                string isYielding = staticUrlConfig.config.GetValue("isYielding");
+                if (!string.IsNullOrEmpty(isYielding) && isYielding == "0")
                     continue;
 
                 string model = staticUrlConfig.config.GetValue("mesh");
@@ -103,11 +141,14 @@ namespace Kerbtown
                     string celestialBodyName = ins.GetValue("CelestialBody");
                     string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
 
+                    string scaleStr = ins.GetValue("Scale");
+                    Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
+
                     if (_instancedList.ContainsKey(modelUrl))
                     {
                         _instancedList[modelUrl].Add(
                             new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
+                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "", launchSiteName));
                     }
                     else
                     {
@@ -115,21 +156,24 @@ namespace Kerbtown
                             new List<StaticObject>
                             {
                                 new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName)
+                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "",
+                                    launchSiteName)
                             });
                     }
                 }
             }
         }
 
-        private void InstantiateStatic(PQS celestialPQS, StaticObject sObject, bool freshObject = false)
+        private void InstantiateStatic(PQS celestialPQS, StaticObject stObject, bool freshObject = false)
         {
-            float visibilityRange = sObject.VisRange;
-            Vector3 orientDirection = sObject.Orientation;
-            float localRotationAngle = sObject.RotAngle;
-            float radiusOffset = sObject.RadOffset;
-            Vector3 radialPosition = sObject.RadPosition;
-            string modelUrl = sObject.ModelUrl;
+            #region Staitc Object Core Parameters
+
+            float visibilityRange = stObject.VisRange;
+            float localRotationAngle = stObject.RotAngle;
+            float radiusOffset = stObject.RadOffset;
+            string modelUrl = stObject.ModelUrl;
+            Vector3 orientDirection = stObject.Orientation;
+            Vector3 radialPosition = stObject.RadPosition;
 
             if (radialPosition == Vector3.zero)
             {
@@ -137,45 +181,56 @@ namespace Kerbtown
                     _currentCelestialObj.CelestialBodyComponent.transform.InverseTransformPoint(
                         FlightGlobals.ActiveVessel.transform.position);
 
-                sObject.RadPosition = radialPosition;
+                stObject.RadPosition = radialPosition;
             }
 
             if (orientDirection == Vector3.zero)
             {
                 orientDirection = Vector3.up;
-                sObject.Orientation = orientDirection;
+                stObject.Orientation = orientDirection;
             }
 
-            sObject.Latitude = GetLatitude(radialPosition);
-            sObject.Longitude = GetLongitude(radialPosition);
+            stObject.Latitude = GetLatitude(radialPosition);
+            stObject.Longitude = GetLongitude(radialPosition);
 
-            GameObject staticGameObject = GameDatabase.Instance.GetModel(modelUrl); // Instantiate
-            staticGameObject.SetActive(true);
+            #endregion
+
+            // Instantiate
+            GameObject ktGameObject = GameDatabase.Instance.GetModel(modelUrl);
+
+            // Add the reference component.
+            var soModule = ktGameObject.AddComponent<StaticObjectModule>();
+            
+            // Active the game object.
+            ktGameObject.SetActive(true);
+
             // Set objects to layer 15 so that they collide correctly with Kerbals.
-            SetLayerRecursively(staticGameObject, 15);
+            SetLayerRecursively(ktGameObject, 15);
 
             // Set the parent object to the celestial component's GameObject.
-            staticGameObject.transform.parent = celestialPQS.transform;
+            ktGameObject.transform.parent = celestialPQS.transform;
 
-            Transform[] gameObjectList = staticGameObject.GetComponentsInChildren<Transform>();
+            // Obtain all active transforms in the static game object.
+            Transform[] gameObjectList = ktGameObject.GetComponentsInChildren<Transform>();
 
+            // Create a list of renderers to be manipulated by the default PQSCity class.
             List<GameObject> rendererList =
                 (from t in gameObjectList where t.gameObject.renderer != null select t.gameObject).ToList();
 
-
+            // Create the LOD range.
             _myLodRange = new PQSCity.LODRange
-            {
-                renderers = rendererList.ToArray(),
-                objects = new GameObject[0],
-                //new[] {staticGameObject},  // Change to GameObject children.
-                visibleRange = visibilityRange
-            };
+                          {
+                              renderers = rendererList.ToArray(),
+                              objects = new GameObject[0],
+                              //new[] {staticGameObject},  // Todo: change to GameObject children.
+                              visibleRange = visibilityRange
+                          };
 
-            //var myCity = staticGameObject.AddComponent<PQSCity>();
-            var myCity = staticGameObject.AddComponent<PQSCityEx>();
+            // Add the PQSCity class (extended by KerbTown).
+            var myCity = ktGameObject.AddComponent<PQSCityEx>();
 
-            myCity.lod = new[] { _myLodRange };
-
+            // Assign PQSCity variables.
+            myCity.lod = new[] {_myLodRange};
             myCity.frameDelta = 1;
             myCity.repositionToSphere = true;
             myCity.repositionToSphereSurface = false;
@@ -185,36 +240,61 @@ namespace Kerbtown
             myCity.reorientToSphere = true;
             myCity.reorientInitialUp = orientDirection;
             myCity.sphere = celestialPQS;
-
             myCity.order = 100;
-
             myCity.modEnabled = true;
 
+            // Assign custom variables.
+            myCity.StaticObjectRef = stObject;
+
+            // Setup and orientate the PQSCity instanced object.
             myCity.OnSetup();
             myCity.Orientate();
 
+            // If the object was instantiated by "Create", override all renderers to active.
             if (freshObject)
             {
-                foreach (var renObj in rendererList)
+                foreach (GameObject renObj in rendererList)
                     renObj.renderer.enabled = true;
             }
 
-            sObject.PQSCityComponent = myCity;
-            sObject.StaticGameObject = staticGameObject;
+            // Add component references to the static object.
+            stObject.PQSCityComponent = myCity;
+            stObject.StaticGameObject = ktGameObject;
+            stObject.ModuleReference = soModule;
 
-            switch (sObject.ObjectID)
+            // Add the static object as a reference to the StaticObjectModule
+            soModule.StaticObjectRef = stObject;
+
+            // Add remaining modules.
+            switch (stObject.ObjectID)
             {
                 case "MushroomCave":
-                    AddNativeComponent(staticGameObject, typeof(MushroomCave));
+                    AddNativeComponent(ktGameObject, typeof (MushroomCave));
                     break;
 
                 case "PurplePathway":
-                    AddNativeComponent(staticGameObject, typeof(PurplePathway));
+                    AddNativeComponent(ktGameObject, typeof (PurplePathway));
                     break;
 
                 default:
-                    AddModuleComponents(staticGameObject, sObject.ConfigURL);
+                    AddModuleComponents(stObject);
                     break;
+            }
+
+            // Alter the Launch Site spawn object name if necessary.
+            // Todo: optimize
+            if (stObject.LaunchSiteName != "")
+            {
+                Transform launchSiteObject =
+                    ktGameObject.transform.Cast<Transform>().FirstOrDefault(t => t.name.EndsWith("_spawn"));
+                if (launchSiteObject != null)
+                {
+                    launchSiteObject.name = stObject.LaunchSiteName + "_spawn";
+                }
+                else
+                {
+                    Extensions.LogWarning("Launch Site '" + ktGameObject.name + "'does not have a spawn transform.");
+                }
             }
         }
 
@@ -226,7 +306,7 @@ namespace Kerbtown
                                  {"Hubs/Static/KerbTown/EE02/EE02", "PurplePathway"}
                              };
 
-            _eeInstances = new Dictionary<string, List<StaticObject>>(configDict.Count);
+            _eeInstanceList = new Dictionary<string, List<StaticObject>>(configDict.Count);
 
             foreach (var configItem in configDict)
             {
@@ -245,6 +325,7 @@ namespace Kerbtown
                 model = model.Substring(0, model.LastIndexOf('.'));
                 string modelUrl = configItem.Key.Substring(0, configItem.Key.SecondLastIndex('/')) + "/" + model;
 
+                // TODO: Instantiate through code rather than config.
                 foreach (ConfigNode ins in staticUrlConfig.GetNodes("Instances"))
                 {
                     Vector3 radPosition = ConfigNode.ParseVector3(ins.GetValue("RadialPosition"));
@@ -254,13 +335,16 @@ namespace Kerbtown
                     float visRange = float.Parse(ins.GetValue("VisibilityRange"));
                     string celestialBodyName = ins.GetValue("CelestialBody");
 
-                    var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                        visRange, modelUrl, configItem.Key, celestialBodyName, configItem.Value);
+                    string scaleStr = ins.GetValue("Scale");
+                    Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
 
-                    if (_eeInstances.ContainsKey(modelUrl))
+                    var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                        visRange, modelUrl, configItem.Key, celestialBodyName, scale, configItem.Value);
+
+                    if (_eeInstanceList.ContainsKey(modelUrl))
                         _instancedList[modelUrl].Add(staticObject);
                     else
-                        _eeInstances.Add(modelUrl, new List<StaticObject> {staticObject});
+                        _eeInstanceList.Add(modelUrl, new List<StaticObject> {staticObject});
 
                     InstantiateStatic(
                         (_currentCelestialObj = GetCelestialObject(staticObject.CelestialBodyName)).PQSComponent,
@@ -285,7 +369,7 @@ namespace Kerbtown
         }
 
         // Save
-        private void WriteSessionConfigs()
+        private void SaveInstances()
         {
             Stopwatch stopWatch = Stopwatch.StartNew();
             ConfigNode modelPartRootNode = null;
@@ -322,6 +406,7 @@ namespace Kerbtown
                     instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
                     instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
                     instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+                    instanceNode.AddValue("Scale", ConfigNode.WriteVector(inst.Scale));
 
                     modelPartRootNode.nodes.Add(instanceNode);
                 }
@@ -342,16 +427,6 @@ namespace Kerbtown
 
             stopWatch.Stop();
             Extensions.LogInfo(string.Format("Saved static objects. ({0}ms)", stopWatch.ElapsedMilliseconds));
-        }
-
-        private void FlightReadyCallBack()
-        {
-            _currentBodyName = FlightGlobals.currentMainBody.bodyName;
-        }
-
-        private void BodyChangedCallback(GameEvents.FromToAction<CelestialBody, CelestialBody> data)
-        {
-            _currentBodyName = data.to.bodyName;
         }
 
         private void Update()
@@ -376,7 +451,7 @@ namespace Kerbtown
         private static double GetLongitude(Vector3d radialPosition)
         {
             Vector3d norm = radialPosition.normalized;
-            double longitude = Math.Atan2(norm.z, norm.x)*57.295780181884766f + 180;
+            double longitude = Math.Atan2(norm.z, norm.x)*57.295780181884766 + 180; // Todo: Recheck validity.
             return (!double.IsNaN(longitude) ? longitude : 0.0);
         }
 
@@ -414,13 +489,6 @@ namespace Kerbtown
                 select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
         }
 
-/*
-        private StaticObject GetStaticObjectFromID(string objectID)
-        {
-            return _instancedList[_currentModelUrl].FirstOrDefault(obFind => obFind.ObjectID == objectID);
-        }
-*/
-
         private void RemoveCurrentStaticObject(string modelURL)
         {
             _instancedList[modelURL].Remove(_currentSelectedObject);
@@ -431,12 +499,12 @@ namespace Kerbtown
             // 150000f is flightcamera max distance
             // Space Center clips at about 80-90km
             return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
-                "");
+                "", new Vector3(1, 1, 1));
         }
 
         private float GetSurfaceRadiusOffset()
         {
-            //todo change to activevessel.altitude after further investigation or just to surface height..
+            // Todo: change to activevessel.altitude after further testing or just to surface height..
 
             Vector3d relativePosition =
                 _currentCelestialObj.PQSComponent.GetRelativePosition(FlightGlobals.ActiveVessel.GetWorldPos3D());
@@ -447,25 +515,21 @@ namespace Kerbtown
 
         private static void DestroyPQS(PQSCity pqsCityComponent)
         {
+            pqsCityComponent.modEnabled = false;
+
             foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
             {
                 lod.SetActive(false);
 
                 foreach (GameObject lodren in lod.renderers)
-                {
                     Destroy(lodren);
-                }
+
                 foreach (GameObject lodobj in lod.objects)
-                {
                     Destroy(lodobj);
-                }
             }
 
-            pqsCityComponent.modEnabled = false;
-            //pqsCityComponent.RebuildSphere();
-
             GameObject gobj = pqsCityComponent.gameObject;
-            
+
             gobj.transform.parent = null;
 
             Destroy(pqsCityComponent);
@@ -474,7 +538,51 @@ namespace Kerbtown
 
         #region Static Components
 
-        private static void AddModule(ConfigNode configNode, GameObject staticGameObject)
+        private void AddModuleComponents(StaticObject staticObject)
+        {
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
+            string rootNodeUrl = staticObject.ConfigURL;
+
+            ConfigNode rootNode = GameDatabase.Instance.GetConfigNode(rootNodeUrl);
+            IEnumerator nodeEnum = rootNode.nodes.GetEnumerator();
+
+            while (nodeEnum.MoveNext())
+            {
+                var currentNode = (ConfigNode) nodeEnum.Current;
+                if (currentNode == null) continue;
+
+                name = currentNode.name;
+                if (name == null) continue;
+
+                var moduleTypes = new Dictionary<string, int> {{"MODULE", 0}, {"RESOURCE", 1}, {"RIGIDBODY", 2}};
+
+                int nodeType;
+                if (!moduleTypes.TryGetValue(name, out nodeType))
+                    continue;
+
+                switch (nodeType)
+                {
+                    case 0: // Module
+                        AddModule(currentNode, staticObject);
+                        break;
+
+                    case 1: // Resource
+                        // Todo
+                        break;
+
+                    case 2: // Rigidbody
+                        AddRigidBody(currentNode, staticObject.StaticGameObject);
+                        break;
+                }
+            }
+
+            stopWatch.Stop();
+            Extensions.LogInfo("Modules loaded for " + staticObject.NameID + ". (" + stopWatch.ElapsedMilliseconds +
+                               "ms)");
+        }
+
+        private static void AddModule(ConfigNode configNode, StaticObject staticObject)
         {
             string namespaceName = configNode.GetValue("namespace");
             string className = configNode.GetValue("name");
@@ -490,7 +598,7 @@ namespace Kerbtown
 
             if (namespaceName == "KerbTown")
             {
-                AddNativeComponent(staticGameObject, configNode, className);
+                AddNativeComponent(staticObject.StaticGameObject, configNode, className);
                 return;
             }
 
@@ -505,7 +613,7 @@ namespace Kerbtown
                 return;
             }
 
-            var moduleComponent = staticGameObject.AddComponent(moduleClass) as MonoBehaviour;
+            var moduleComponent = staticObject.StaticGameObject.AddComponent(moduleClass) as MonoBehaviour;
 
             if (moduleComponent == null)
             {
@@ -514,7 +622,165 @@ namespace Kerbtown
                 return;
             }
 
+            // Assign variables specified in the config for the module.
             AssignVariables(configNode, moduleComponent);
+
+            // Add the module to the module list. Creating the list if it hasn't been created already.
+            if (staticObject.ModuleList == null) staticObject.ModuleList = new List<KtComponent>();
+            staticObject.ModuleList.Add(new KtComponent(moduleComponent));
+        }
+
+        private static void AddNativeComponent(GameObject staticGameObject, Type classType)
+        {
+            staticGameObject.AddComponent(classType);
+        }
+
+        private static void AddNativeComponent(GameObject staticGameObject, ConfigNode configNode, string className)
+        {
+            switch (className)
+            {
+                case "Ladder":
+                    string ladderObjectName = configNode.GetValue("name");
+                    if (string.IsNullOrEmpty(ladderObjectName))
+                    {
+                        Extensions.LogError("The GenericLadder component requires the 'name' field to be set.");
+                        return;
+                    }
+
+                    var genericLadder = staticGameObject.AddComponent<GenericLadder>();
+                    genericLadder.ObjectName = ladderObjectName;
+                    genericLadder.Setup();
+                    break;
+
+                case "AnimateOnCollision":
+                case "AnimateOnClick":
+                    string objectName = configNode.GetValue("collider");
+                    string animName = configNode.GetValue("animationName");
+
+                    if (string.IsNullOrEmpty(objectName) || string.IsNullOrEmpty(animName))
+                    {
+                        Extensions.LogError(string.Format("GenericAnimation is missing the '{0}' parameter.",
+                            string.IsNullOrEmpty(objectName) ? "collider" : "animationName"));
+                        return;
+                    }
+
+                    bool shouldHighlight;
+                    float animationSpeed;
+
+                    var genericAnimationModule = staticGameObject.AddComponent<GenericAnimation>();
+
+                    if (bool.TryParse(configNode.GetValue("HighlightOnHover"), out shouldHighlight))
+                        genericAnimationModule.HighlightOnHover = shouldHighlight;
+
+                    if (float.TryParse(configNode.GetValue("animationSpeed"), out animationSpeed))
+                        genericAnimationModule.AnimationSpeed = animationSpeed;
+
+                    genericAnimationModule.ClassName = className;
+                    genericAnimationModule.AnimationName = animName;
+                    genericAnimationModule.ObjectName = objectName;
+
+                    genericAnimationModule.Setup();
+                    break;
+
+                default:
+                    Extensions.LogWarning("KerbTown." + className + " does not exist or is not accessible.");
+                    Extensions.LogWarning(
+                        "The 'name' parameter should be either: 'AnimateOnCollision' or 'AnimateOnClick'.");
+                    break;
+            }
+        }
+
+        private static void AddRigidBody(ConfigNode currentNode, GameObject staticGameObject)
+        {
+            string objectName = currentNode.GetValue("name");
+            if (string.IsNullOrEmpty(objectName))
+            {
+                Extensions.LogError(
+                    "The 'name' parameter is empty. You must specify the GameObject name for a Rigidbody component to be added.");
+                return;
+            }
+
+            float fVal;
+            float rbMass = 1f;
+            float rbDrag = 0f;
+            float rbAngularDrag = 0.05f;
+            bool rbUseGravity;
+            bool rbIsKinematic;
+            RigidbodyInterpolation rbInterpolation;
+            CollisionDetectionMode rbCollisionDetectionMode;
+
+            if (float.TryParse(currentNode.GetValue("mass"), out fVal))
+                rbMass = fVal;
+
+            if (float.TryParse(currentNode.GetValue("drag"), out fVal))
+                rbDrag = fVal;
+
+            if (float.TryParse(currentNode.GetValue("angularDrag"), out fVal))
+                rbAngularDrag = fVal;
+
+            if (!bool.TryParse(currentNode.GetValue("useGravity"), out rbUseGravity))
+                rbUseGravity = false; // Failed, set default.
+
+            if (!bool.TryParse(currentNode.GetValue("isKinematic"), out rbIsKinematic))
+                rbIsKinematic = true; // Failed, set default.
+
+            switch (currentNode.GetValue("interpolationMode"))
+            {
+                case "Extrapolate":
+                    rbInterpolation = RigidbodyInterpolation.Extrapolate;
+
+                    break;
+                case "Interpolate":
+                    rbInterpolation = RigidbodyInterpolation.Interpolate;
+                    break;
+
+                default:
+                    rbInterpolation = RigidbodyInterpolation.None;
+                    break;
+            }
+
+            switch (currentNode.GetValue("collisionDetectionMode"))
+            {
+                case "ContinuousDynamic":
+                    rbCollisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
+
+                    break;
+                case "Continuous":
+                    rbCollisionDetectionMode = CollisionDetectionMode.Continuous;
+                    break;
+
+                default:
+                    rbCollisionDetectionMode = CollisionDetectionMode.Discrete;
+                    break;
+            }
+
+            // Recursive
+            AddRigidBodies(staticGameObject, objectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
+                rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
+        }
+
+        private static void AddRigidBodies(GameObject sGameObject, string gameObjectName,
+            float rbMass, float rbDrag, float rbAngularDrag, bool rbUseGravity,
+            bool rbIsKinematic, RigidbodyInterpolation rbInterpolation,
+            CollisionDetectionMode rbCollisionDetectionMode)
+        {
+            if (sGameObject.name == gameObjectName)
+            {
+                var rigidBody = sGameObject.AddComponent<Rigidbody>();
+                rigidBody.isKinematic = rbIsKinematic;
+                rigidBody.useGravity = rbUseGravity;
+                rigidBody.mass = rbMass;
+                rigidBody.drag = rbDrag;
+                rigidBody.angularDrag = rbAngularDrag;
+                rigidBody.interpolation = rbInterpolation;
+                rigidBody.collisionDetectionMode = rbCollisionDetectionMode;
+            }
+
+            foreach (Transform childTransform in sGameObject.transform)
+            {
+                AddRigidBodies(childTransform.gameObject, gameObjectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
+                    rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
+            }
         }
 
         private static void AssignVariables(ConfigNode configNode, MonoBehaviour moduleComponent)
@@ -525,12 +791,15 @@ namespace Kerbtown
             {
                 var current = (ConfigNode.Value) enumerator.Current;
 
-                if (current == null)
+                if (current == null || current.name == "name" || current.name == "namespace")
                     continue;
 
                 FieldInfo field = moduleComponent.GetType().GetField(current.name);
                 if (field == null)
+                {
+                    Extensions.LogWarning("Could not find the '" + current.name + "' field.");
                     continue;
+                }
 
                 field.SetValue(moduleComponent, ParseValue(current.value, field));
             }
@@ -634,7 +903,7 @@ namespace Kerbtown
                 }
                 catch (Exception exception)
                 {
-                    Debug.LogException(exception);
+                    UnityEngine.Debug.LogException(exception);
                     Extensions.LogError(
                         string.Format(
                             "Could not parse the value '{0}' for '{1}' as '{2}'. It may have been incorrectly formatted.",
@@ -646,172 +915,18 @@ namespace Kerbtown
             return null;
         }
 
-        private static void AddNativeComponent(GameObject staticGameObject, Type classType)
+        #endregion
+
+        #region Callbacks
+
+        private void OnDominantBodyChangeCallback(GameEvents.FromToAction<CelestialBody, CelestialBody> data)
         {
-            staticGameObject.AddComponent(classType);
+            _currentBodyName = data.to.bodyName;
         }
 
-        private static void AddNativeComponent(GameObject staticGameObject, ConfigNode configNode, string className)
+        private void OnFlightReadyCallback()
         {
-            string objectName = configNode.GetValue("collider");
-            string animName = configNode.GetValue("animationName");
-
-            switch (className)
-            {
-                case "AnimateOnCollision":
-                case "AnimateOnClick":
-                    bool shouldHighlight;
-                    float animationSpeed;
-
-                    var genericAnimationModule = staticGameObject.AddComponent<GenericAnimation>();
-
-                    if (bool.TryParse(configNode.GetValue("HighlightOnHover"), out shouldHighlight))
-                        genericAnimationModule.HighlightOnHover = shouldHighlight;
-
-                    if (float.TryParse(configNode.GetValue("animationSpeed"), out animationSpeed))
-                        genericAnimationModule.AnimationSpeed = animationSpeed;
-
-                    genericAnimationModule.ClassName = className;
-                    genericAnimationModule.AnimationName = animName;
-                    genericAnimationModule.ObjectName = objectName;
-
-                    genericAnimationModule.Setup();
-                    break;
-
-                default:
-                    Extensions.LogWarning("KerbTown." + className + " does not exist or is not accessible.");
-                    Extensions.LogWarning(
-                        "The 'name' parameter should be either: 'AnimateOnCollision' or 'AnimateOnClick'.");
-                    break;
-            }
-        }
-
-        private void AddModuleComponents(GameObject staticGameObject, string rootNodeUrl)
-        {
-            Stopwatch stopWatch = Stopwatch.StartNew();
-
-            ConfigNode rootNode = GameDatabase.Instance.GetConfigNode(rootNodeUrl);
-            IEnumerator nodeEnum = rootNode.nodes.GetEnumerator();
-
-            while (nodeEnum.MoveNext())
-            {
-                var currentNode = (ConfigNode) nodeEnum.Current;
-                if (currentNode == null) continue;
-
-                name = currentNode.name;
-                if (name == null) continue;
-
-                var moduleTypes = new Dictionary<string, int> {{"MODULE", 0}, {"RESOURCE", 1}, {"RIGIDBODY", 2}};
-
-                int nodeType;
-                if (!moduleTypes.TryGetValue(name, out nodeType))
-                    continue;
-
-                switch (nodeType)
-                {
-                    case 0: // Module
-                        AddModule(currentNode, staticGameObject);
-                        break;
-
-                    case 1: // Resource
-                        //PartResource partResource = part.AddResource(currentNode);
-                        break;
-
-                    case 2: // Rigidbody
-                        string objectName = currentNode.GetValue("name");
-                        if (string.IsNullOrEmpty(objectName))
-                        {
-                            Extensions.LogError(
-                                "The 'name' parameter is empty. You must specify the GameObject name for a Rigidbody component to be added.");
-                            continue;
-                        }
-
-                        float fVal;
-                        float rbMass = 1f;
-                        float rbDrag = 0f;
-                        float rbAngularDrag = 0.05f;
-                        bool rbUseGravity;
-                        bool rbIsKinematic;
-                        RigidbodyInterpolation rbInterpolation;
-                        CollisionDetectionMode rbCollisionDetectionMode;
-
-                        if (float.TryParse(currentNode.GetValue("mass"), out fVal))
-                            rbMass = fVal;
-
-                        if (float.TryParse(currentNode.GetValue("drag"), out fVal))
-                            rbDrag = fVal;
-
-                        if (float.TryParse(currentNode.GetValue("angularDrag"), out fVal))
-                            rbAngularDrag = fVal;
-
-                        if (!bool.TryParse(currentNode.GetValue("useGravity"), out rbUseGravity))
-                            rbUseGravity = false; // Failed, set default.
-
-                        if (!bool.TryParse(currentNode.GetValue("isKinematic"), out rbIsKinematic))
-                            rbIsKinematic = true; // Failed, set default.
-
-                        switch (currentNode.GetValue("interpolationMode"))
-                        {
-                            case "Extrapolate":
-                                rbInterpolation = RigidbodyInterpolation.Extrapolate;
-
-                                break;
-                            case "Interpolate":
-                                rbInterpolation = RigidbodyInterpolation.Interpolate;
-                                break;
-
-                            default:
-                                rbInterpolation = RigidbodyInterpolation.None;
-                                break;
-                        }
-
-                        switch (currentNode.GetValue("collisionDetectionMode"))
-                        {
-                            case "ContinuousDynamic":
-                                rbCollisionDetectionMode = CollisionDetectionMode.ContinuousDynamic;
-
-                                break;
-                            case "Continuous":
-                                rbCollisionDetectionMode = CollisionDetectionMode.Continuous;
-                                break;
-
-                            default:
-                                rbCollisionDetectionMode = CollisionDetectionMode.Discrete;
-                                break;
-                        }
-
-                        AddRigidBodies(staticGameObject, objectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
-                            rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
-                        break;
-                }
-            }
-
-            stopWatch.Stop();
-            Extensions.LogInfo("Modules loaded. (" + stopWatch.ElapsedMilliseconds + "ms)");
-        }
-
-        private static void AddRigidBodies(GameObject sGameObject, string gameObjectName,
-            float rbMass, float rbDrag, float rbAngularDrag, bool rbUseGravity,
-            bool rbIsKinematic, RigidbodyInterpolation rbInterpolation,
-            CollisionDetectionMode rbCollisionDetectionMode)
-        {
-            if (sGameObject.name == gameObjectName)
-            {
-                var rigidBody = sGameObject.AddComponent<Rigidbody>();
-                rigidBody.isKinematic = rbIsKinematic;
-                rigidBody.useGravity = rbUseGravity;
-                rigidBody.mass = rbMass;
-                rigidBody.drag = rbDrag;
-                rigidBody.angularDrag = rbAngularDrag;
-                rigidBody.interpolation = rbInterpolation;
-                rigidBody.collisionDetectionMode = rbCollisionDetectionMode;
-            }
-
-            foreach (Transform childTransform in sGameObject.transform)
-            {
-                AddRigidBodies(childTransform.gameObject, gameObjectName, rbMass, rbDrag, rbAngularDrag, rbUseGravity,
-                    rbIsKinematic, rbInterpolation, rbCollisionDetectionMode);
-            }
+            _currentBodyName = FlightGlobals.currentMainBody.bodyName;
         }
 
         #endregion
@@ -833,174 +948,6 @@ namespace Kerbtown
 
                 if (PQSComponent == null)
                     Extensions.LogError("Could not obtain PQS component from: " + parentObject.name);
-            }
-        }
-
-        public class StaticObject
-        {
-            public readonly string ConfigURL;
-            public readonly string ModelUrl;
-            public readonly string NameID;
-            public readonly string ObjectID;
-            public readonly float VisRange;
-
-            public string CelestialBodyName = "";
-
-            public double Latitude;
-            public string LaunchSiteName = "";
-            public double Longitude;
-            public Vector3 Orientation;
-            public PQSCity PQSCityComponent;
-
-            public float RadOffset;
-            public Vector3 RadPosition;
-
-            public float RotAngle;
-            public GameObject StaticGameObject;
-
-            private List<Collider> _colliderComponents;
-            private List<Renderer> _rendererComponents;
-
-            public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
-                Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
-                string celestialBodyName, string objectID = "", string launchSiteName = "")
-            {
-                RadPosition = radialPosition;
-                RotAngle = rotationAngle;
-                RadOffset = radiusOffset;
-                Orientation = objectOrientation;
-                VisRange = visibilityRange;
-
-                CelestialBodyName = celestialBodyName;
-
-                ModelUrl = modelUrl;
-                ConfigURL = configUrl;
-
-                LaunchSiteName = launchSiteName;
-
-                ObjectID = objectID;
-
-                if (string.IsNullOrEmpty(ObjectID))
-                    ObjectID = (visibilityRange + rotationAngle + radiusOffset + objectOrientation.magnitude +
-                                radialPosition.x + radialPosition.y + radialPosition.z +
-                                Random.Range(0f, 1000000f)).ToString("N2");
-
-                NameID = string.Format("{0} ({1})", modelUrl.Substring(modelUrl.LastIndexOf('/') + 1), ObjectID);
-            }
-
-            public void Manipulate(bool objectInactive)
-            {
-                Manipulate(objectInactive, XKCDColors.BlueyGrey);
-            }
-
-            public void Manipulate(bool objectInactive, Color highlightColor)
-            {
-                if (StaticGameObject == null)
-                {
-                    Extensions.LogWarning(NameID + " has no GameObject attached.");
-                    return;
-                }
-
-                #region Colliders
-
-                if (_colliderComponents == null || _colliderComponents.Count == 0)
-                {
-                    Collider[] colliderList = StaticGameObject.GetComponentsInChildren<Collider>();
-
-                    if (colliderList.Length > 0)
-                    {
-                        _colliderComponents = new List<Collider>(colliderList);
-                    }
-                    else Extensions.LogWarning(NameID + " has no collider components.");
-                }
-
-                if (_colliderComponents != null && _colliderComponents.Count > 0)
-                {
-                    foreach (Collider collider in _colliderComponents)
-                    {
-                        collider.enabled = !objectInactive;
-                    }
-                }
-
-                #endregion
-
-                #region Highlight
-
-                if ((_rendererComponents == null || _rendererComponents.Count == 0))
-                {
-                    Renderer[] rendererList = StaticGameObject.GetComponentsInChildren<Renderer>();
-                    if (rendererList.Length == 0)
-                    {
-                        Extensions.PostScreenMessage("[KerbTown] Active Vessel not within visibility range.");
-                        Extensions.LogWarning(NameID + " has no renderer components.");
-                        return;
-                    }
-                    _rendererComponents = new List<Renderer>(rendererList);
-                }
-
-                if (!objectInactive) // Deactivate.
-                {
-                    highlightColor = new Color(0, 0, 0, 0);
-
-                    KtCamera.RestoreCameraParent();
-                }
-                else // Activate
-                {
-                    if (
-                        Vector3.Distance(PQSCityComponent.sphere.transform.position, PQSCityComponent.transform.position) >=
-                        PQSCityComponent.lod[0].visibleRange)
-                        KtCamera.SetCameraParent(StaticGameObject.transform);
-                    else
-                        Extensions.PostScreenMessage(
-                            "[KerbTown] Ignoring camera switch. Static object is not within the visible range of your active vessel.");
-                }
-
-                foreach (Renderer renderer in _rendererComponents)
-                {
-                    renderer.material.SetFloat("_RimFalloff", 1.8f);
-                    renderer.material.SetColor("_RimColor", highlightColor);
-                }
-
-                #endregion
-            }
-
-            public void Reorientate()
-            {
-                if (PQSCityComponent == null) return;
-                PQSCityComponent.repositionRadial = RadPosition;
-                PQSCityComponent.repositionRadiusOffset = RadOffset;
-                PQSCityComponent.reorientFinalAngle = RotAngle;
-                PQSCityComponent.reorientInitialUp = Orientation;
-                PQSCityComponent.Orientate();
-            }
-
-            public bool MakeLaunchSite(bool isLaunchSite)
-            {
-                if (!isLaunchSite)
-                {
-                    LaunchSiteName = "";
-                    return true;
-                }
-
-                foreach (Transform t in StaticGameObject.transform)
-                {
-                    if (!t.name.EndsWith("_spawn"))
-                        continue;
-
-                    LaunchSiteName = t.name.Replace("_spawn", "");
-                    return true;
-                }
-
-                Extensions.LogError("Unable to find the launch spawning transform.");
-                return false;
-            }
-
-            public override string ToString()
-            {
-                return
-                    string.Format(
-                        "NameID: {0}, ObjectID: {1}, CelestialBodyName: {2}, ModelUrl: {3}, ConfigUrl: {4}, RPos: {5}",
-                        NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
             }
         }
     }
