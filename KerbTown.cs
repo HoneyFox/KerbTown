@@ -25,6 +25,7 @@ using System.Reflection;
 using Kerbtown.EEComponents;
 using Kerbtown.NativeModules;
 using UnityEngine;
+using Debug = UnityEngine.Debug;
 
 namespace Kerbtown
 {
@@ -61,7 +62,7 @@ namespace Kerbtown
 
         private void OnLoad(Game data)
         {
-            foreach (var module in from i in _instancedList.SelectMany(ins => ins.Value)
+            foreach (KtComponent module in from i in _instancedList.SelectMany(ins => ins.Value)
                 from module in i.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
@@ -72,7 +73,7 @@ namespace Kerbtown
 
         private void OnSave(Game data)
         {
-            foreach (var module in from i in _instancedList.SelectMany(ins => ins.Value)
+            foreach (KtComponent module in from i in _instancedList.SelectMany(ins => ins.Value)
                 from module in i.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
@@ -92,8 +93,10 @@ namespace Kerbtown
 
             foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
             {
-                foreach (var module in i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof(StaticObjectModule)))
-                    ((StaticObjectModule)module.ModuleComponent).OnUnload();
+                foreach (
+                    KtComponent module in
+                        i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
+                    ((StaticObjectModule) module.ModuleComponent).OnUnload();
 
                 DestroyPQS(i.PQSCityComponent);
             }
@@ -208,7 +211,7 @@ namespace Kerbtown
 
             // Add the reference component.
             var soModule = ktGameObject.AddComponent<StaticObjectModule>();
-            
+
             // Active the game object.
             ktGameObject.SetActive(true);
 
@@ -911,7 +914,7 @@ namespace Kerbtown
                 }
                 catch (Exception exception)
                 {
-                    UnityEngine.Debug.LogException(exception);
+                    Debug.LogException(exception);
                     Extensions.LogError(
                         string.Format(
                             "Could not parse the value '{0}' for '{1}' as '{2}'. It may have been incorrectly formatted.",
