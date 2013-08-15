@@ -1,4 +1,10 @@
-﻿using System.Linq;
+﻿/* LICENSE
+ * This source code is copyrighted.
+ * All rights reserved.
+ * Copyright © Ryan Irecki 2013
+ */
+
+using System.Linq;
 using UnityEngine;
 
 namespace Kerbtown.EEComponents
@@ -21,7 +27,7 @@ namespace Kerbtown.EEComponents
 
             if (bTextTransform == null)
             {
-                Debug.LogError("No bTextTransform");
+                Extensions.LogError("No bTextTransform");
                 Destroy(this);
                 return;
             }

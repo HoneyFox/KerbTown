@@ -1,0 +1,192 @@
+﻿/* LICENSE
+ * This source code is copyrighted.
+ * All rights reserved.
+ * Copyright © Ryan Irecki 2013
+ */
+
+using System.Collections.Generic;
+using System.Linq;
+using UnityEngine;
+
+namespace Kerbtown
+{
+    public class StaticObject
+    {
+        public readonly string ConfigURL;
+        public readonly string ModelUrl;
+        public readonly string NameID;
+        public readonly string ObjectID;
+
+        public string CelestialBodyName = "";
+        public bool IsSpaceActive;
+
+        public double Latitude;
+        public string LaunchSiteName = "";
+        public double Longitude;
+        public List<KtComponent> ModuleList;
+        //public StaticObjectModule ModuleReference;
+        public Vector3 Orientation;
+        public PQSCity PQSCityComponent;
+
+        public float RadOffset;
+        public Vector3 RadPosition;
+        public float RotAngle;
+        public Vector3 Scale;
+
+        public GameObject StaticGameObject;
+        public float VisRange;
+
+        private List<Collider> _colliderComponents;
+        private List<Renderer> _rendererComponents;
+
+        public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
+            Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
+            string celestialBodyName, Vector3 scale, string objectID = "", string launchSiteName = "")
+        {
+            RadPosition = radialPosition;
+            RotAngle = rotationAngle;
+            RadOffset = radiusOffset;
+            Orientation = objectOrientation;
+            VisRange = visibilityRange;
+
+            CelestialBodyName = celestialBodyName;
+
+            Scale = scale;
+
+            ModelUrl = modelUrl;
+            ConfigURL = configUrl;
+
+            LaunchSiteName = launchSiteName;
+
+            ObjectID = objectID;
+
+            if (string.IsNullOrEmpty(ObjectID))
+                ObjectID = (visibilityRange + rotationAngle + radiusOffset + objectOrientation.magnitude +
+                            radialPosition.x + radialPosition.y + radialPosition.z +
+                            Random.Range(0f, 1000000f)).ToString("N2");
+
+            NameID = string.Format("{0} ({1})", modelUrl.Substring(modelUrl.LastIndexOf('/') + 1), ObjectID);
+        }
+
+        public void Manipulate(bool objectInactive)
+        {
+            Manipulate(objectInactive, XKCDColors.BlueyGrey);
+        }
+
+        public void Manipulate(bool objectInactive, Color highlightColor)
+        {
+            if (StaticGameObject == null)
+            {
+                Extensions.LogWarning(NameID + " has no GameObject attached.");
+                return;
+            }
+
+            #region Colliders
+
+            if (_colliderComponents == null || _colliderComponents.Count == 0)
+            {
+                Collider[] colliderList = StaticGameObject.GetComponentsInChildren<Collider>();
+
+                if (colliderList.Length > 0)
+                {
+                    _colliderComponents = new List<Collider>(colliderList);
+                }
+                else Extensions.LogWarning(NameID + " has no collider components.");
+            }
+
+            if (_colliderComponents != null && _colliderComponents.Count > 0)
+            {
+                foreach (Collider collider in _colliderComponents)
+                {
+                    collider.enabled = !objectInactive;
+                }
+            }
+
+            #endregion
+
+            #region Highlight
+
+            if ((_rendererComponents == null || _rendererComponents.Count == 0))
+            {
+                Renderer[] rendererList = StaticGameObject.GetComponentsInChildren<Renderer>();
+                if (rendererList.Length == 0)
+                {
+                    Extensions.PostScreenMessage("[KerbTown] Active Vessel not within visibility range.");
+                    Extensions.LogWarning(NameID + " has no renderer components.");
+                    return;
+                }
+                _rendererComponents = new List<Renderer>(rendererList);
+            }
+
+            if (!objectInactive) // Deactivate.
+            {
+                highlightColor = new Color(0, 0, 0, 0);
+
+                KtCamera.RestoreCameraParent();
+            }
+            else // Activate
+            {
+                if (
+                    Vector3.Distance(PQSCityComponent.sphere.transform.position, PQSCityComponent.transform.position) >=
+                    PQSCityComponent.lod[0].visibleRange)
+                    KtCamera.SetCameraParent(StaticGameObject.transform);
+                else
+                    Extensions.PostScreenMessage(
+                        "[KerbTown] Ignoring camera switch. Static object is not within the visible range of your active vessel.");
+            }
+
+            foreach (Renderer renderer in _rendererComponents)
+            {
+                renderer.material.SetFloat("_RimFalloff", 1.8f);
+                renderer.material.SetColor("_RimColor", highlightColor);
+            }
+
+            #endregion
+        }
+
+        public void Reorientate()
+        {
+            if (PQSCityComponent == null) return;
+            PQSCityComponent.repositionRadial = RadPosition;
+            PQSCityComponent.repositionRadiusOffset = RadOffset;
+            PQSCityComponent.reorientFinalAngle = RotAngle;
+            PQSCityComponent.reorientInitialUp = Orientation;
+            PQSCityComponent.Orientate();
+        }
+
+        public bool MakeLaunchSite(bool isLaunchSite, string name = "")
+        {
+            if (!isLaunchSite)
+            {
+                LaunchSiteName = "";
+                return true;
+            }
+
+            // Still require the object to contain a spawn point.
+            // TODO: Add support for multiple spawn points.
+            if (StaticGameObject.transform.Cast<Transform>().Any(t => t.name.EndsWith("_spawn")))
+            {
+                LaunchSiteName = name;
+                return true;
+            }
+
+            Extensions.LogError("Unable to find the launch spawning transform.");
+            return false;
+        }
+
+        public override string ToString()
+        {
+            return
+                string.Format(
+                    "NameID: {0}, ObjectID: {1}, CelestialBodyName: {2}, ModelUrl: {3}, ConfigUrl: {4}, RPos: {5}",
+                    NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
+        }
+
+        public void Rescale()
+        {
+            if (StaticGameObject == null) return;
+
+            StaticGameObject.transform.localScale = Scale;
+        }
+    }
+}

@@ -48,7 +48,6 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="EEComponents\DistortionScript.cs" />
-    <Compile Include="EEComponents\KerbalSeatEx.cs" />
     <Compile Include="EEComponents\MainMenu.cs" />
     <Compile Include="EEComponents\MushroomCave.cs" />
     <Compile Include="EEComponents\PurplePathway.cs" />
@@ -56,10 +55,15 @@
     <Compile Include="KerbTown.cs" />
     <Compile Include="KtCamera.cs" />
     <Compile Include="KerbTownGUI.cs" />
+    <Compile Include="KtModule.cs" />
+    <Compile Include="NativeModules\Ladder.cs" />
+    <Compile Include="NativeModules\ObjectResources.cs" />
+    <Compile Include="StaticObject.cs" />
     <Compile Include="LaunchSiteSelector.cs" />
     <Compile Include="NativeModules\GenericAnimation.cs" />
     <Compile Include="PQSCityEx.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="StaticObjectModule.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
