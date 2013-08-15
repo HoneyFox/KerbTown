@@ -61,23 +61,35 @@ namespace Kerbtown
 
         private void OnLoad(Game data)
         {
+<<<<<<< HEAD
             foreach (var module in from i in _instancedList.SelectMany(ins => ins.Value)
                 from module in i.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
             {
                 ((StaticObjectModule) module.ModuleComponent).OnLoad(data);
+=======
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnLoad(data);
+>>>>>>> f332de282dc874fb97fb61cb7df59f097e69dcf8
             }
         }
 
         private void OnSave(Game data)
         {
+<<<<<<< HEAD
             foreach (var module in from i in _instancedList.SelectMany(ins => ins.Value)
                 from module in i.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
             {
                 ((StaticObjectModule) module.ModuleComponent).OnSave(data);
+=======
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnSave(data);
+>>>>>>> f332de282dc874fb97fb61cb7df59f097e69dcf8
             }
         }
 
@@ -89,13 +101,19 @@ namespace Kerbtown
             GameEvents.onFlightReady.Remove(OnFlightReadyCallback);
             GameEvents.onGameStateSaved.Remove(OnSave);
             GameEvents.onGameStateCreated.Remove(OnLoad);
+<<<<<<< HEAD
 
             foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
             {
                 foreach (var module in i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof(StaticObjectModule)))
                     ((StaticObjectModule)module.ModuleComponent).OnUnload();
-            }
 
+=======
+
+            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
+            {
+                i.ModuleReference.OnUnload();
+>>>>>>> f332de282dc874fb97fb61cb7df59f097e69dcf8
                 DestroyPQS(i.PQSCityComponent);
             }
 
@@ -269,11 +287,19 @@ namespace Kerbtown
             // Add component references to the static object.
             stObject.PQSCityComponent = myCity;
             stObject.StaticGameObject = ktGameObject;
+<<<<<<< HEAD
             //stObject.ModuleReference = soModule;
 
             // Add the static object as a reference to the StaticObjectModule
             soModule.StaticObjectRef = stObject;
 
+=======
+            stObject.ModuleReference = soModule;
+
+            // Add the static object as a reference to the StaticObjectModule
+            soModule.StaticObjectRef = stObject;
+
+>>>>>>> f332de282dc874fb97fb61cb7df59f097e69dcf8
             // Add remaining modules.
             switch (stObject.ObjectID)
             {
