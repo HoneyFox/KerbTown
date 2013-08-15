@@ -33,7 +33,7 @@ namespace Kerbtown
             }
 
             var rootNode = ConfigNode.Load(fileInfo.FullName);
-            _ktSave = rootNode.GetNode("KerbTownPersistence");
+            _ktSave = rootNode.GetNode("KerbTownPersistence") ?? rootNode.AddNode("KerbTownPersistence");
 
             if (_ktSave.HasValue(settingName))
             {
@@ -53,8 +53,8 @@ namespace Kerbtown
             if (!fileInfo.Exists) return null;
 
             _ktSave = ConfigNode.Load(fileInfo.FullName).GetNode("KerbTownPersistence");
-
-            return _ktSave.GetValue(settingName);
+            
+            return _ktSave == null ? null : _ktSave.GetValue(settingName);
         }
 
         public static void WriteNode(ConfigNode newNode)

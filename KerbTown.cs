@@ -62,24 +62,24 @@ namespace Kerbtown
 
         private void OnLoad(Game data)
         {
-            foreach (KtComponent module in from i in _instancedList.SelectMany(ins => ins.Value)
-                from module in i.ModuleList
+            foreach (KtComponent module in from ins in _instancedList
+                from o in ins.Value
+                where o.ModuleList != null
+                from module in o.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
-            {
                 ((StaticObjectModule) module.ModuleComponent).OnLoad(data);
-            }
         }
 
         private void OnSave(Game data)
         {
-            foreach (KtComponent module in from i in _instancedList.SelectMany(ins => ins.Value)
-                from module in i.ModuleList
+            foreach (KtComponent module in from ins in _instancedList
+                from o in ins.Value
+                where o.ModuleList != null
+                from module in o.ModuleList
                 where module.ModuleComponent.GetType() == typeof (StaticObjectModule)
                 select module)
-            {
                 ((StaticObjectModule) module.ModuleComponent).OnSave(data);
-            }
         }
 
         private void OnDestroy()
@@ -93,10 +93,13 @@ namespace Kerbtown
 
             foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
             {
-                foreach (
-                    KtComponent module in
-                        i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
-                    ((StaticObjectModule) module.ModuleComponent).OnUnload();
+                if (i.ModuleList != null)
+                {
+                    foreach (KtComponent module in i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
+                    {
+                        ((StaticObjectModule) module.ModuleComponent).OnUnload();
+                    }
+                }
 
                 DestroyPQS(i.PQSCityComponent);
             }
