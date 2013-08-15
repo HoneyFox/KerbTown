@@ -94,7 +94,6 @@ namespace Kerbtown
             {
                 foreach (var module in i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof(StaticObjectModule)))
                     ((StaticObjectModule)module.ModuleComponent).OnUnload();
-            }
 
                 DestroyPQS(i.PQSCityComponent);
             }
