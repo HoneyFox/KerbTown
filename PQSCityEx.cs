@@ -27,11 +27,12 @@ namespace Kerbtown
         {
             // TODO Decide on implementation and remove this code.
             if (StaticObjectRef == null || StaticObjectRef.ModuleList == null) return;
-            
+            if (sphere == null || sphere.target == null) return;
+
             foreach (var mod in StaticObjectRef.ModuleList)
             {
                 if (mod.KeepAlive) continue;
-
+                
                 mod.ModuleComponent.enabled =
                     (Vector3.Distance(sphere.target.transform.position, transform.position) <
                      StaticObjectRef.VisRange);
