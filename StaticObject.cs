@@ -31,7 +31,7 @@ namespace Kerbtown
         public float RadOffset;
         public Vector3 RadPosition;
         public float RotAngle;
-        public Vector3 Scale;
+        //public Vector3 Scale;
 
         public GameObject StaticGameObject;
         public float VisRange;
@@ -39,9 +39,12 @@ namespace Kerbtown
         private List<Collider> _colliderComponents;
         private List<Renderer> _rendererComponents;
 
+        //public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
+        //    Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
+        //    string celestialBodyName, Vector3 scale, string objectID = "", string launchSiteName = "")
         public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
             Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
-            string celestialBodyName, Vector3 scale, string objectID = "", string launchSiteName = "")
+            string celestialBodyName, string objectID = "", string launchSiteName = "")
         {
             RadPosition = radialPosition;
             RotAngle = rotationAngle;
@@ -51,7 +54,7 @@ namespace Kerbtown
 
             CelestialBodyName = celestialBodyName;
 
-            Scale = scale;
+            //Scale = scale;
 
             ModelUrl = modelUrl;
             ConfigURL = configUrl;
@@ -182,11 +185,11 @@ namespace Kerbtown
                     NameID, ObjectID, CelestialBodyName, ModelUrl, ConfigURL, RadPosition);
         }
 
-        public void Rescale()
-        {
-            if (StaticGameObject == null) return;
+        //public void Rescale()
+        //{
+        //    if (StaticGameObject == null) return;
 
-            StaticGameObject.transform.localScale = Scale;
-        }
+        //    StaticGameObject.transform.localScale = Scale;
+        //}
     }
 }

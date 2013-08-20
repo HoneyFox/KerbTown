@@ -49,9 +49,9 @@ namespace Kerbtown
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
-        private string _xScale = "";
-        private string _yScale = "";
-        private string _zScale = "";
+        //private string _xScale = "";
+        //private string _yScale = "";
+        //private string _zScale = "";
                                  
         private string _visRange = "";
         
@@ -332,13 +332,13 @@ namespace Kerbtown
             #endregion
 
             #region Scale Factor
-            GUI.Label(new Rect(10, 175, 100, 22), "Scale");
-            GUI.backgroundColor = Color.red;
-            _xScale = GUI.TextField(new Rect(100, 175, 40, 22), _xScale);
-            GUI.backgroundColor = Color.green;
-            _yScale = GUI.TextField(new Rect(140, 175, 50, 22), _yScale);
-            GUI.backgroundColor = Color.blue;
-            _zScale = GUI.TextField(new Rect(190, 175, 40, 22), _zScale);
+            //GUI.Label(new Rect(10, 175, 100, 22), "Scale");
+            //GUI.backgroundColor = Color.red;
+            //_xScale = GUI.TextField(new Rect(100, 175, 40, 22), _xScale);
+            //GUI.backgroundColor = Color.green;
+            //_yScale = GUI.TextField(new Rect(140, 175, 50, 22), _yScale);
+            //GUI.backgroundColor = Color.blue;
+            //_zScale = GUI.TextField(new Rect(190, 175, 40, 22), _zScale);
             #endregion
 
             #region Update
@@ -351,9 +351,12 @@ namespace Kerbtown
                 if (float.TryParse(_yPosition, out floatVal)) _currentSelectedObject.RadPosition.y = floatVal;
                 if (float.TryParse(_rPosition, out floatVal)) _currentSelectedObject.RadOffset = floatVal;
                 if (float.TryParse(_visRange, out floatVal)) _currentSelectedObject.VisRange = floatVal;
-                if (float.TryParse(_xScale, out floatVal)){ _currentSelectedObject.Scale.x = floatVal;
-                if (float.TryParse(_yScale, out floatVal)) _currentSelectedObject.Scale.y = floatVal;
-                if (float.TryParse(_zScale, out floatVal)) _currentSelectedObject.Scale.z = floatVal;}
+                //if (float.TryParse(_xScale, out floatVal))
+                //{
+                //    _currentSelectedObject.Scale.x = floatVal;
+                //    if (float.TryParse(_yScale, out floatVal)) _currentSelectedObject.Scale.y = floatVal;
+                //    if (float.TryParse(_zScale, out floatVal)) _currentSelectedObject.Scale.z = floatVal;
+                //}
 
                 reorient = true;
             }
@@ -419,16 +422,16 @@ namespace Kerbtown
                 _zPosition = _currentSelectedObject.RadPosition.z.ToString(CultureInfo.InvariantCulture);
                 _rPosition = _currentSelectedObject.RadOffset.ToString(CultureInfo.InvariantCulture);
 
-                _xScale = _currentSelectedObject.Scale.x.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1");
-                _yScale = _currentSelectedObject.Scale.y.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1");
-                _zScale = _currentSelectedObject.Scale.z.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1"); 
+                //_xScale = _currentSelectedObject.Scale.x.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1");
+                //_yScale = _currentSelectedObject.Scale.y.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1");
+                //_zScale = _currentSelectedObject.Scale.z.ToString(CultureInfo.InvariantCulture).Replace("0.9999998", "1"); 
 
                 _visRange = _currentSelectedObject.VisRange.ToString(CultureInfo.InvariantCulture);
 
                 _currentSelectedObject.Latitude = GetLatitude(_currentSelectedObject.RadPosition);
                 _currentSelectedObject.Longitude = GetLongitude(_currentSelectedObject.RadPosition);
                 _currentSelectedObject.Reorientate();
-                _currentSelectedObject.Rescale();
+                //_currentSelectedObject.Rescale();
             }
 
             #endregion
@@ -507,7 +510,8 @@ namespace Kerbtown
             if (GUI.Button(new Rect(480, 330, 100, 30), "Create") && _currentModelUrl != "")
             {
                 // Clear old vis/position/scale info.
-                _visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                //_visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                _visRange = _xPosition = _rPosition = _yPosition = _zPosition = "";
                  
 
                 // Set the current celestial object. (Needs to be set before GetDefaultStaticObject).
@@ -570,7 +574,8 @@ namespace Kerbtown
                         string.Format("{0} (ID: {1})", sObject.ModelUrl, sObject.ObjectID)))
                     {
                         // Clear text fields.
-                        _visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                        //_visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                        _visRange = _xPosition = _rPosition = _yPosition = _zPosition = "";
 
                         if (itemMatches)
                         {

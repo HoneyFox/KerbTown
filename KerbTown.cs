@@ -155,22 +155,28 @@ namespace Kerbtown
                     string celestialBodyName = ins.GetValue("CelestialBody");
                     string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
 
-                    string scaleStr = ins.GetValue("Scale");
-                    Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
+                    //string scaleStr = ""; //ins.GetValue("Scale");
+                    //Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
 
                     if (_instancedList.ContainsKey(modelUrl))
                     {
+                        //_instancedList[modelUrl].Add(
+                        //    new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                        //        visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "", launchSiteName));
                         _instancedList[modelUrl].Add(
                             new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "", launchSiteName));
+                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
                     }
                     else
                     {
                         _instancedList.Add(modelUrl,
                             new List<StaticObject>
                             {
+                                //new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                                //    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "",
+                                //    launchSiteName)
                                 new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "",
+                                    visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "",
                                     launchSiteName)
                             });
                     }
@@ -349,11 +355,13 @@ namespace Kerbtown
                     float visRange = float.Parse(ins.GetValue("VisibilityRange"));
                     string celestialBodyName = ins.GetValue("CelestialBody");
 
-                    string scaleStr = ins.GetValue("Scale");
-                    Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
+                    //string scaleStr = "";//ins.GetValue("Scale");
+                    //Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
 
+                    //var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                    //    visRange, modelUrl, configItem.Key, celestialBodyName, scale, configItem.Value);
                     var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                        visRange, modelUrl, configItem.Key, celestialBodyName, scale, configItem.Value);
+                        visRange, modelUrl, configItem.Key, celestialBodyName, configItem.Value);
 
                     if (_eeInstanceList.ContainsKey(modelUrl))
                         _instancedList[modelUrl].Add(staticObject);
@@ -420,7 +428,7 @@ namespace Kerbtown
                     instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
                     instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
                     instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
-                    instanceNode.AddValue("Scale", ConfigNode.WriteVector(inst.Scale));
+                    //instanceNode.AddValue("Scale", ConfigNode.WriteVector(inst.Scale));
 
                     modelPartRootNode.nodes.Add(instanceNode);
                 }
@@ -512,8 +520,8 @@ namespace Kerbtown
         {
             // 150000f is flightcamera max distance
             // Space Center clips at about 80-90km
-            return new StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl,
-                "", new Vector3(1, 1, 1));
+            return new
+                StaticObject(Vector3.zero, 0, GetSurfaceRadiusOffset(), Vector3.up, 100000, modelUrl, configUrl, "");
         }
 
         private float GetSurfaceRadiusOffset()
