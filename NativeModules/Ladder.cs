@@ -24,7 +24,8 @@ namespace Kerbtown.NativeModules
                     obj.collider.isTrigger = true;
                 }
 
-                obj.tag = "Ladder";
+                obj.gameObject.tag = "Ladder";
+                obj.gameObject.layer = 0x15;
             }
 
             Destroy(this);

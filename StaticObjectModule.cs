@@ -23,5 +23,9 @@ namespace Kerbtown
         public virtual void OnUnload()
         {
         }
+
+        public virtual void OnFirstSetup()
+        {
+        }
     }
 }

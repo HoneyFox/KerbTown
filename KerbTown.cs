@@ -4,22 +4,12 @@
  * Copyright © Ryan Irecki 2013
  */
 
-/* Public TODO List
-        Add support for resources.
-        Add generic module for instantiating static objects from parts when event criteria is met (i.e. button).
-        Add local database for static objects to enable reloading without reloading the entire KSP Game Database.
-        Add per-vessel launch site saves.
-        Add per-save options for instances / editing sessions.
-        Add generic movie playback component for cinematic objects.
-        Add support for KSP Prefabs, if permitted.
-        Add generic pick-up item module and inventory system. 
- */
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Kerbtown.EEComponents;
@@ -38,18 +28,21 @@ namespace Kerbtown
         private string _currentModelUrl = "";
         private StaticObject _currentSelectedObject;
 
-        private Dictionary<string, List<StaticObject>> _eeInstanceList;
+        private Dictionary<string, List<StaticObject>> _eeInstancedList;
         private Dictionary<string, List<StaticObject>> _instancedList;
+
         private Dictionary<string, string> _modelList;
 
         private PQSCity.LODRange _myLodRange;
         private float _prevRotationAngle;
+        private Dictionary<string, List<StaticObject>> _ssInstancedList;
 
         private void Awake()
         {
-            GenerateModelLists();
+            PopulateLists();
             InstantiateEasterEggs();
             InstantiateStaticsFromInstanceList();
+            InstantiateStaticsFromSave();
 
             if (FlightGlobals.currentMainBody != null)
                 _currentBodyName = FlightGlobals.currentMainBody.bodyName; //todo remove redundant code
@@ -91,26 +84,25 @@ namespace Kerbtown
             GameEvents.onGameStateSaved.Remove(OnSave);
             GameEvents.onGameStateCreated.Remove(OnLoad);
 
-            foreach (StaticObject i in _instancedList.SelectMany(ins => ins.Value))
-            {
-                if (i.ModuleList != null)
-                {
-                    foreach (KtComponent module in i.ModuleList.Where(module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
-                    {
-                        ((StaticObjectModule) module.ModuleComponent).OnUnload();
-                    }
-                }
-
-                DestroyPQS(i.PQSCityComponent);
-            }
-
-            foreach (StaticObject i in _eeInstanceList.SelectMany(ins => ins.Value))
-                DestroyPQS(i.PQSCityComponent);
-
             KtCamera.RestoreCameraParent();
+
+            DestroyInstances(_instancedList);
+
+            // Destroy Easter Eggs
+            foreach (StaticObject i in _eeInstancedList.SelectMany(ins => ins.Value))
+                DestroySoInstance(i);
         }
 
-        private void GenerateModelLists()
+        private static void DestroyInstances(Dictionary<string, List<StaticObject>> instanceDictionary)
+        {
+            foreach (StaticObject i in instanceDictionary.SelectMany(ins => ins.Value))
+            {
+                DestroySoInstance(i);
+            }
+        }
+
+        // Create instanced lists.
+        private void PopulateLists()
         {
             UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
             _instancedList = new Dictionary<string, List<StaticObject>>();
@@ -118,12 +110,8 @@ namespace Kerbtown
 
             foreach (UrlDir.UrlConfig staticUrlConfig in staticConfigs)
             {
+                // Skip easter eggs all together.
                 if (staticUrlConfig.url.IndexOf("KerbTown/EE", StringComparison.OrdinalIgnoreCase) >= 0)
-                    continue;
-
-                // Skip adding the object if it is not yielding.
-                string isYielding = staticUrlConfig.config.GetValue("isYielding");
-                if (!string.IsNullOrEmpty(isYielding) && isYielding == "0")
                     continue;
 
                 string model = staticUrlConfig.config.GetValue("mesh");
@@ -139,6 +127,11 @@ namespace Kerbtown
 
                 //Extensions.LogWarning("Model url: " + modelUrl);
                 //Extensions.LogWarning("Config url: " + staticUrlConfig.url);
+
+                // Skip adding the object if it is not yielding.
+                //string isYielding = staticUrlConfig.config.GetValue("isYielding");
+
+                //if (string.IsNullOrEmpty(isYielding) || isYielding != "0")
                 _modelList.Add(modelUrl, staticUrlConfig.url);
 
                 // If we already have previous instances of the object, fill up the lists so that KerbTown can start instantiating them
@@ -326,7 +319,7 @@ namespace Kerbtown
                                  {"Hubs/Static/KerbTown/EE02/EE02", "PurplePathway"}
                              };
 
-            _eeInstanceList = new Dictionary<string, List<StaticObject>>(configDict.Count);
+            _eeInstancedList = new Dictionary<string, List<StaticObject>>(configDict.Count);
 
             foreach (var configItem in configDict)
             {
@@ -363,10 +356,10 @@ namespace Kerbtown
                     var staticObject = new StaticObject(radPosition, rotAngle, radOffset, orientation,
                         visRange, modelUrl, configItem.Key, celestialBodyName, configItem.Value);
 
-                    if (_eeInstanceList.ContainsKey(modelUrl))
+                    if (_eeInstancedList.ContainsKey(modelUrl))
                         _instancedList[modelUrl].Add(staticObject);
                     else
-                        _eeInstanceList.Add(modelUrl, new List<StaticObject> {staticObject});
+                        _eeInstancedList.Add(modelUrl, new List<StaticObject> {staticObject});
 
                     InstantiateStatic(
                         (_currentCelestialObj = GetCelestialObject(staticObject.CelestialBodyName)).PQSComponent,
@@ -375,7 +368,7 @@ namespace Kerbtown
             }
         }
 
-        // Load
+        // Load Global Instances
         private void InstantiateStaticsFromInstanceList()
         {
             Stopwatch stopWatch = Stopwatch.StartNew();
@@ -388,6 +381,74 @@ namespace Kerbtown
 
             stopWatch.Stop();
             Extensions.LogInfo(string.Format("Loaded static objects. ({0}ms)", stopWatch.ElapsedMilliseconds));
+        }
+
+        // Load Save Instances
+        private void InstantiateStaticsFromSave()
+        {
+            string saveConfigPath;
+
+            if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX)
+            {
+                saveConfigPath = string.Format("{0}saves/{1}/KTInstances.cfg", KSPUtil.ApplicationRootPath,
+                    HighLogic.SaveFolder);
+            }
+            else // Career / Scenario
+            {
+                saveConfigPath = string.Format("{0}saves/scenarios/KT_{1}.cfg", KSPUtil.ApplicationRootPath,
+                    HighLogic.CurrentGame.Title);
+            }
+
+            if (!File.Exists(saveConfigPath)) return;
+
+            ConfigNode rootNode = ConfigNode.Load(saveConfigPath);
+            _ssInstancedList = new Dictionary<string, List<StaticObject>>();
+
+            foreach (ConfigNode ins in rootNode.GetNodes("Instances"))
+            {
+                Vector3 radPosition = ConfigNode.ParseVector3(ins.GetValue("RadialPosition"));
+                float rotAngle = float.Parse(ins.GetValue("RotationAngle"));
+                float radOffset = float.Parse(ins.GetValue("RadiusOffset"));
+                Vector3 orientation = ConfigNode.ParseVector3(ins.GetValue("Orientation"));
+                float visRange = float.Parse(ins.GetValue("VisibilityRange"));
+                string celestialBodyName = ins.GetValue("CelestialBody");
+                string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
+
+                string modelUrl = ins.GetValue("ModelURL");
+                string configUrl = ins.GetValue("ConfigURL");
+
+                if (string.IsNullOrEmpty(modelUrl) || string.IsNullOrEmpty(configUrl)) continue;
+
+                if (_ssInstancedList.ContainsKey(modelUrl))
+                {
+                    _ssInstancedList[modelUrl].Add(
+                        new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                            visRange, modelUrl, configUrl, celestialBodyName, "", launchSiteName));
+                }
+                else
+                {
+                    _ssInstancedList.Add(modelUrl,
+                        new List<StaticObject>
+                        {
+                            new StaticObject(radPosition, rotAngle, radOffset, orientation,
+                                visRange, modelUrl, configUrl, celestialBodyName, "",
+                                launchSiteName)
+                        });
+                }
+            }
+
+            //_ssInstancedList = new Dictionary<string, List<StaticObject>>();
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
+            foreach (StaticObject instance in _ssInstancedList.Keys.SelectMany(instList => _ssInstancedList[instList]))
+            {
+                InstantiateStatic((_currentCelestialObj = GetCelestialObject(instance.CelestialBodyName)).PQSComponent,
+                    instance);
+            }
+
+            stopWatch.Stop();
+            Extensions.LogInfo(string.Format("Loaded save specific static objects. ({0}ms)",
+                stopWatch.ElapsedMilliseconds));
         }
 
         // Save
@@ -451,6 +512,58 @@ namespace Kerbtown
             Extensions.LogInfo(string.Format("Saved static objects. ({0}ms)", stopWatch.ElapsedMilliseconds));
         }
 
+        private void WritePersistence(bool deleteInstead = false)
+        {
+            string saveConfigPath;
+
+            if (HighLogic.CurrentGame.Mode == Game.Modes.SANDBOX)
+            {
+                saveConfigPath = string.Format("{0}saves/{1}/KTInstances.cfg", KSPUtil.ApplicationRootPath,
+                    HighLogic.SaveFolder);
+            }
+            else // Career / Scenario
+            {
+                saveConfigPath = string.Format("{0}saves/scenarios/KT_{1}.cfg", KSPUtil.ApplicationRootPath,
+                    HighLogic.CurrentGame.Title);
+            }
+
+            if (deleteInstead)
+            {
+                DestroyInstances(_ssInstancedList);
+                File.Delete(saveConfigPath);
+                return;
+            }
+
+            Stopwatch stopWatch = Stopwatch.StartNew();
+
+            var staticNode = new ConfigNode("KtStaticPersistence");
+            foreach (string instList in _instancedList.Keys)
+            {
+                foreach (StaticObject inst in _instancedList[instList])
+                {
+                    var instanceNode = new ConfigNode("Instances");
+
+                    instanceNode.AddValue("RadialPosition", ConfigNode.WriteVector(inst.RadPosition));
+                    instanceNode.AddValue("RotationAngle", inst.RotAngle.ToString(CultureInfo.InvariantCulture));
+                    instanceNode.AddValue("RadiusOffset", inst.RadOffset.ToString(CultureInfo.InvariantCulture));
+                    instanceNode.AddValue("Orientation", ConfigNode.WriteVector(inst.Orientation));
+                    instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
+                    instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
+                    instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+
+                    instanceNode.AddValue("ModelURL", inst.ModelUrl);
+                    instanceNode.AddValue("ConfigURL", inst.ConfigURL);
+
+                    staticNode.nodes.Add(instanceNode);
+                }
+            }
+
+            staticNode.Save(saveConfigPath, " Generated by KerbTown - Hubs' Electrical");
+
+            stopWatch.Stop();
+            Extensions.LogInfo(string.Format("Saved static objects. [*] ({0}ms)", stopWatch.ElapsedMilliseconds));
+        }
+
         private void Update()
         {
             // CTRL + K for show/hide.
@@ -460,6 +573,11 @@ namespace Kerbtown
                 {
                     _mainWindowVisible = !_mainWindowVisible;
                 }
+            }
+
+            if (_mainWindowVisible)
+            {
+                _deletePersistence = (Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift));
             }
         }
 
@@ -511,11 +629,6 @@ namespace Kerbtown
                 select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
         }
 
-        private void RemoveCurrentStaticObject(string modelURL)
-        {
-            _instancedList[modelURL].Remove(_currentSelectedObject);
-        }
-
         private StaticObject GetDefaultStaticObject(string modelUrl, string configUrl)
         {
             // 150000f is flightcamera max distance
@@ -535,27 +648,55 @@ namespace Kerbtown
             return (float) (relativePosition.x/rpNormalized.x - _currentCelestialObj.PQSComponent.radius);
         }
 
-        private static void DestroyPQS(PQSCity pqsCityComponent)
+        private static void DestroySoInstance(StaticObject staticObject)
         {
-            pqsCityComponent.modEnabled = false;
-
-            foreach (PQSCity.LODRange lod in pqsCityComponent.lod)
+            try
             {
-                lod.SetActive(false);
+                staticObject.PQSCityComponent.modEnabled = false;
 
-                foreach (GameObject lodren in lod.renderers)
-                    Destroy(lodren);
+                foreach (PQSCity.LODRange lod in staticObject.PQSCityComponent.lod)
+                {
+                    lod.SetActive(false);
 
-                foreach (GameObject lodobj in lod.objects)
-                    Destroy(lodobj);
+                    foreach (GameObject lodren in lod.renderers)
+                        Destroy(lodren);
+
+                    foreach (GameObject lodobj in lod.objects)
+                        Destroy(lodobj);
+                }
+
+                if (staticObject.ModuleList != null)
+                {
+                    foreach (KtComponent module in staticObject.ModuleList.Where
+                        (module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
+                    {
+                        ((StaticObjectModule) module.ModuleComponent).OnUnload();
+                    }
+                }
+
+                staticObject.StaticGameObject.transform.parent = null;
+
+                Destroy(staticObject.PQSCityComponent);
+                DestroyImmediate(staticObject.StaticGameObject);
             }
+            catch (Exception ex)
+            {
+                Extensions.LogError("An exception was caught while destroying a static object.");
+                Debug.LogException(ex);
+            }
+        }
 
-            GameObject gobj = pqsCityComponent.gameObject;
+        private static void InvokeSetup(StaticObject staticObject)
+        {
+            if (staticObject.ModuleList == null)
+                return;
 
-            gobj.transform.parent = null;
-
-            Destroy(pqsCityComponent);
-            DestroyImmediate(gobj);
+            // Loop incase the content creator has decided to add multiple SOM's.
+            foreach (KtComponent module in staticObject.ModuleList.Where
+                (module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
+            {
+                ((StaticObjectModule) module.ModuleComponent).OnFirstSetup();
+            }
         }
 
         #region Static Components
@@ -590,7 +731,7 @@ namespace Kerbtown
                         break;
 
                     case 1: // Resource
-                        // Todo
+                        // Not used any more.
                         break;
 
                     case 2: // Rigidbody
@@ -672,6 +813,12 @@ namespace Kerbtown
                     var genericLadder = staticGameObject.AddComponent<GenericLadder>();
                     genericLadder.ObjectName = ladderObjectName;
                     genericLadder.Setup();
+                    break;
+
+                case "TimeOfDayController":
+                    var todController = staticGameObject.AddComponent<TimeOfDayController>();
+                    //Todo add variables for config entries.
+
                     break;
 
                 case "AnimateOnCollision":

@@ -152,4 +152,54 @@ namespace Kerbtown.NativeModules
             _animationPlaying = false;
         }
     }
+
+    public class TimeOfDayController : MonoBehaviour
+    {
+        // I believe the TimeOfDayAnimation component would probably do similar to what I've written ..
+        // .. but it has no public variables to specify an animation component (for future plans).
+        // So I wrote a new one. :)
+
+        public Transform SunTransform;
+        public Animation EmissiveAnimation;
+        private string _clipName = "";
+        private float _dot;
+
+        void Start()
+        {
+            // If no sun transform is predefined, we use the default 'Sun'.
+            if (SunTransform == null && Sun.Instance != null)
+                SunTransform = Sun.Instance.transform;
+
+            if (EmissiveAnimation == null)
+            {
+                EmissiveAnimation = GetComponentInChildren<Animation>(); //animation
+                if (EmissiveAnimation == null)
+                {
+                    Extensions.LogWarning("Could not obtain an animation component for the TimeOfDayController component.");
+                    return;
+                }
+            }
+
+            _clipName = EmissiveAnimation.clip.name;
+            
+            EmissiveAnimation.Stop();
+
+        }
+        private void Update()
+        {
+            if (SunTransform == null || EmissiveAnimation == null)
+            {
+                DestroyImmediate(this);
+                return;
+            }
+
+            _dot = 0.5f - ((Vector3.Dot(SunTransform.forward, -transform.up) + 1f) * 0.25f);
+            
+            EmissiveAnimation[_clipName].enabled = true;
+            EmissiveAnimation[_clipName].normalizedTime = _dot;
+            EmissiveAnimation.Sample();
+
+            EmissiveAnimation[_clipName].enabled = false;
+        }
+    }
 }

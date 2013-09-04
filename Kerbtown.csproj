@@ -57,7 +57,6 @@
     <Compile Include="KerbTownGUI.cs" />
     <Compile Include="KtModule.cs" />
     <Compile Include="NativeModules\Ladder.cs" />
-    <Compile Include="NativeModules\ObjectResources.cs" />
     <Compile Include="StaticObject.cs" />
     <Compile Include="LaunchSiteSelector.cs" />
     <Compile Include="NativeModules\GenericAnimation.cs" />
@@ -66,6 +65,9 @@
     <Compile Include="StaticObjectModule.cs" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <PropertyGroup>
+    <PostBuildEvent>copy /Y $(TargetFileName) "\Games\SteamLibrary\SteamApps\common\Kerbal Space Program\GameData\Hubs\Plugins\"</PostBuildEvent>
+  </PropertyGroup>
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.
   <Target Name="BeforeBuild">

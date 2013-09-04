@@ -21,9 +21,9 @@ namespace Kerbtown
 
         private Rect _assetListRect = new Rect(460, 40, 600, 370);
         private Rect _currAssetListRect = new Rect(480, 60, 600, 370);
-        private Rect _mainWindowRect = new Rect(20, 20, 410, 400);
 
-        private Rect _lsNameWindowRect = new Rect(Screen.width / 2 - 150, Screen.height / 2 - 44, 300, 88);
+        private Rect _lsNameWindowRect = new Rect(Screen.width/2 - 150, Screen.height/2 - 44, 300, 88);
+        private Rect _mainWindowRect = new Rect(20, 20, 410, 400);
 
         #endregion
 
@@ -31,8 +31,8 @@ namespace Kerbtown
 
         private bool _availAssetsVisible = true;
         private bool _currAssetsVisible;
-        private bool _mainWindowVisible;
         private bool _lsNameVisible;
+        private bool _mainWindowVisible;
 
         #endregion
 
@@ -42,34 +42,33 @@ namespace Kerbtown
 
         #endregion
 
+        private string _currentLaunchSiteName = "";
+        private bool _deletePersistence;
+        private GUISkin _mySkin;
+        private string _rPosition = "";
         private bool _showSavedLabel;
         private int _speedMultiplier = 1;
+        private string _visRange = "";
 
-        private string _rPosition = "";
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
         //private string _xScale = "";
         //private string _yScale = "";
         //private string _zScale = "";
-                                 
-        private string _visRange = "";
-        
-        private GUISkin _mySkin;
 
-        void Start()
+        private void Start()
         {
             //_mySkin = AssetBase.GetGUISkin("KSP window 5");
         }
-        
-        
+
         private void OnGUI()
         {
             if (!_mainWindowVisible)
                 return;
-         
+
             GUI.skin = _mySkin;
-            
+
             // Main Window
             _mainWindowRect = GUI.Window(0x8100, _mainWindowRect, DrawMainWindow, "KerbTown Editor");
 
@@ -91,16 +90,16 @@ namespace Kerbtown
 
             if (_lsNameVisible)
             {
-                _lsNameWindowRect = GUI.Window(0x8104, _lsNameWindowRect, DrawLSNamingWindow, "Enter the name of your Launch Site");
+                _lsNameWindowRect = GUI.Window(0x8104, _lsNameWindowRect, DrawLSNamingWindow,
+                    "Enter the name of your Launch Site");
                 //!isLaunchSite
             }
         }
 
-        private string _currentLaunchSiteName = "";
         private void DrawLSNamingWindow(int windowID)
         {
             _currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 280, 22), _currentLaunchSiteName);
-            
+
             GUI.backgroundColor = Color.green;
             if (GUI.Button(new Rect(10, 55, 80, 22), "Done"))
             {
@@ -146,6 +145,17 @@ namespace Kerbtown
                 }
             }
 
+            if (GUI.Button(new Rect(210, 90, 180, 25),
+                _deletePersistence ? "Delete Persistence" : "Write to Persistence"))
+            {
+                WritePersistence(_deletePersistence);
+                if (!_showSavedLabel)
+                {
+                    _showSavedLabel = true;
+                    StartCoroutine(HideStatus());
+                }
+            }
+
             if (_showSavedLabel)
                 GUI.Label(new Rect(150, 90, 200, 25), "Saved.");
 
@@ -166,9 +176,11 @@ namespace Kerbtown
         private void DrawPositioningControls()
         {
             #region Launch Site
+
             bool isLaunchSite = (_currentSelectedObject.LaunchSiteName != "");
 
-            if (GUI.Button(new Rect(150, 90, 160, 25), isLaunchSite ? "Unmark as Launch Site" : "Mark as Launch Site"))
+            GUI.backgroundColor = !isLaunchSite ? XKCDColors.Orange : XKCDColors.OrangeRed;
+            if (GUI.Button(new Rect(210, 120, 180, 25), isLaunchSite ? "Unmark as Launch Site" : "Mark as Launch Site"))
             {
                 if (isLaunchSite)
                 {
@@ -180,6 +192,7 @@ namespace Kerbtown
                     _lsNameVisible = true;
                 }
             }
+
             #endregion
 
             bool reorient = false;
@@ -188,6 +201,7 @@ namespace Kerbtown
             GUI.Label(new Rect(0, 0, 200, 22), "Object Placement Controls");
 
             #region Speed Multipliers
+
             GUI.Label(new Rect(10, 25, 200, 22), "Transition Speed Multiplier");
             GUI.backgroundColor = _speedMultiplier == 1 ? Color.cyan : Color.white;
             if (GUI.Button(new Rect(185, 25, 35, 22), "1x"))
@@ -208,6 +222,7 @@ namespace Kerbtown
             GUI.backgroundColor = _speedMultiplier == 50 ? Color.cyan : Color.white;
             if (GUI.Button(new Rect(345, 25, 35, 22), "50x"))
                 _speedMultiplier = 50;
+
             #endregion
 
             #region X Position
@@ -326,12 +341,15 @@ namespace Kerbtown
             #endregion
 
             #region Visibility Range
+
             GUI.backgroundColor = XKCDColors.Orange;
             GUI.Label(new Rect(10, 150, 100, 22), "Vis. Range");
             _visRange = GUI.TextField(new Rect(100, 150, 130, 22), _visRange);
+
             #endregion
 
             #region Scale Factor
+
             //GUI.Label(new Rect(10, 175, 100, 22), "Scale");
             //GUI.backgroundColor = Color.red;
             //_xScale = GUI.TextField(new Rect(100, 175, 40, 22), _xScale);
@@ -339,9 +357,11 @@ namespace Kerbtown
             //_yScale = GUI.TextField(new Rect(140, 175, 50, 22), _yScale);
             //GUI.backgroundColor = Color.blue;
             //_zScale = GUI.TextField(new Rect(190, 175, 40, 22), _zScale);
+
             #endregion
 
             #region Update
+
             GUI.backgroundColor = Color.yellow;
             if (GUI.Button(new Rect(240, 150, 140, 50), "\x2190      Update      \x2191"))
             {
@@ -360,6 +380,7 @@ namespace Kerbtown
 
                 reorient = true;
             }
+
             #endregion
 
             #region Orientation
@@ -512,7 +533,7 @@ namespace Kerbtown
                 // Clear old vis/position/scale info.
                 //_visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
                 _visRange = _xPosition = _rPosition = _yPosition = _zPosition = "";
-                 
+
 
                 // Set the current celestial object. (Needs to be set before GetDefaultStaticObject).
                 _currentBodyName = FlightGlobals.ActiveVessel.mainBody.bodyName;
@@ -556,7 +577,7 @@ namespace Kerbtown
 
         private void DrawCurrAssetWindow(int windowID)
         {
-            GUI.Box(new Rect(10, 30, 580, 290), "");    // Background
+            GUI.Box(new Rect(10, 30, 580, 290), ""); // Background
 
             _currAssetScrollPos = GUI.BeginScrollView(new Rect(10, 30, 580, 290), _currAssetScrollPos,
                 new Rect(0, 0, 560, _instancedList.Values.Sum(list => list.Count)*28 + 5));
@@ -614,14 +635,23 @@ namespace Kerbtown
                 {
                     KtCamera.RestoreCameraParent();
                     //Destroy(_currentSelectedObject.StaticGameObject);
-                    DestroyPQS(_currentSelectedObject.PQSCityComponent);
-                    RemoveCurrentStaticObject(_currentSelectedObject.ModelUrl);
+                    DestroySoInstance(_currentSelectedObject);
+                    //RemoveCurrentStaticObject(_currentSelectedObject.ModelUrl);
+                    _instancedList[_currentSelectedObject.ModelUrl].Remove(_currentSelectedObject);
                 }
 
                 _currentObjectID = "";
                 _currentSelectedObject = null;
             }
 
+            GUI.backgroundColor = new Color(0, 0, _currentSelectedObject != null ? 1 : 0);
+            if (GUI.Button(new Rect(490, 330, 100, 30), "Initialize"))
+            {
+                if (_currentSelectedObject != null)
+                {
+                    InvokeSetup(_currentSelectedObject);
+                }
+            }
 
             GUI.DragWindow(new Rect(0, 0, 10000, 10000));
         }
