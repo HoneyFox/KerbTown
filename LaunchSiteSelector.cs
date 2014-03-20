@@ -43,7 +43,7 @@ namespace Kerbtown
                         if(!string.IsNullOrEmpty(ins.GetValue("LaunchSiteName")))
                         {
                             string launchSiteName = ins.GetValue("LaunchSiteName");
-                            string launchSitePqsName = ins.GetValue("CelestialBodyName");
+                            string launchSitePqsName = ins.GetValue("CelestialBody");
                             
                             
                             _launchSiteList.Add(launchSiteName);
