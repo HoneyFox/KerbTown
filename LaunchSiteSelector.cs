@@ -49,14 +49,21 @@ namespace Kerbtown
                 {
                     if(fi.FieldType.Name == "LaunchSite[]")
                     {
-                        List<LaunchSite> sites = (List<LaunchSite>)fi.GetValue(PSystemSetup.Instance);
+                        LaunchSite[] sites = (LaunchSite[])fi.GetValue(PSystemSetup.Instance);
                         if(PSystemSetup.Instance.GetLaunchSite(launchSiteName) == null)
                         {
                             LaunchSite newSite = new LaunchSite();
                             newSite.launchPadName = launchSiteName + "_spawn";
                             newSite.name = launchSiteName;
                             newSite.pqsName = sites[0].pqsName;
-                            sites.Add(newSite);
+                            LaunchSite[] newSites = new LaunchSite[sites.Length + 1];
+                            for(int i = 0; i < sites.Length; ++i)
+                            {
+                                newSites[i] = sites[i];
+                            }
+                            newSites[newSites.Length - 1] = newSite;
+                            fi.SetValue(PSystemSetup.Instance, newSites);
+                            sites = newSites;
                         }
                     }
                 }
