@@ -40,7 +40,27 @@ namespace Kerbtown
                 into launchSiteName
                 where !string.IsNullOrEmpty(launchSiteName)
                 select launchSiteName)
+            {
                 _launchSiteList.Add(launchSiteName);
+                foreach(FieldInfo fi in PSystemSetup.Instance.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+                {
+                    if(fi.FieldType.Name == "LaunchSite[]")
+                    {
+                        List<LaunchSite> sites = (List<LaunchSite>)fi.GetValue(PSystemSetup.Instance);
+                        if(PSystemSetup.Instance.GetLaunchSite(launchSiteName) == null)
+                        {
+                            LaunchSite newSite = new LaunchSite();
+                            newSite.launchPadName = launchSiteName + "_spawn";
+                            newSite.PQS = sites[0].PQS;
+                            // TODO: We need to get the transform of the pad here.
+                            //newSite.launchPadTransform = 
+                            newSite.name = launchSiteName;
+                            newSite.pqsName = sites[0].pqsName;
+                            sites.Add(newSite);
+                        }
+                    }
+                }
+            }
         }
 
         public void Start()
