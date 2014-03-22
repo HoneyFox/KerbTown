@@ -22,6 +22,7 @@ namespace Kerbtown
 
         public double Latitude;
         public string LaunchSiteName = "";
+		public string LaunchPadTransform = "";
         public double Longitude;
         public List<KtComponent> ModuleList;
         //public StaticObjectModule ModuleReference;
@@ -44,7 +45,7 @@ namespace Kerbtown
         //    string celestialBodyName, Vector3 scale, string objectID = "", string launchSiteName = "")
         public StaticObject(Vector3 radialPosition, float rotationAngle, float radiusOffset,
             Vector3 objectOrientation, float visibilityRange, string modelUrl, string configUrl,
-            string celestialBodyName, string objectID = "", string launchSiteName = "")
+            string celestialBodyName, string objectID = "", string launchSiteName = "", string launchPadTransform = "")
         {
             RadPosition = radialPosition;
             RotAngle = rotationAngle;
@@ -59,7 +60,8 @@ namespace Kerbtown
             ModelUrl = modelUrl;
             ConfigURL = configUrl;
 
-            LaunchSiteName = launchSiteName;
+			LaunchSiteName = launchSiteName;
+			LaunchPadTransform = launchPadTransform;
 
             ObjectID = objectID;
 
@@ -157,7 +159,7 @@ namespace Kerbtown
             PQSCityComponent.Orientate();
         }
 
-        public bool MakeLaunchSite(bool isLaunchSite, string name = "")
+        public bool MakeLaunchSite(bool isLaunchSite, string name = "", string padName = "")
         {
             if (!isLaunchSite)
             {
@@ -167,7 +169,7 @@ namespace Kerbtown
 
             // Still require the object to contain a spawn point.
             // TODO: Add support for multiple spawn points.
-            if (StaticGameObject.transform.Cast<Transform>().Any(t => t.name.EndsWith("_spawn")))
+			if (padName == "./" || StaticGameObject.transform.Find(padName) != null)
             {
                 LaunchSiteName = name;
                 return true;

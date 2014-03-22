@@ -42,8 +42,8 @@ namespace Kerbtown
             }
 
             KtCamera.ActiveCameraPivot.transform.rotation = KtCamera.ActiveCameraPivot.transform.parent.rotation;
-            KtCamera.ActiveCameraPivot.transform.RotateAround(KtCamera.ActiveCameraPivot.transform.up, _cameraX);
-            KtCamera.ActiveCameraPivot.transform.RotateAround(KtCamera.ActiveCameraPivot.transform.right, _cameraY);
+            KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.up, _cameraX);
+            KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.right, _cameraY);
 
             KtCamera.ActiveFlightCamera.transform.localPosition =
                 Vector3.Lerp(

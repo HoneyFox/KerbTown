@@ -43,38 +43,11 @@ namespace Kerbtown
                         if(!string.IsNullOrEmpty(ins.GetValue("LaunchSiteName")))
                         {
                             string launchSiteName = ins.GetValue("LaunchSiteName");
+							string launchPadTransform = ins.GetValue("LaunchPadTransform");
                             string launchSitePqsName = ins.GetValue("CelestialBody");
-                            
+							Debug.Log("Launch site: " + launchSiteName + " " + launchPadTransform + " @" + launchSitePqsName);
                             
                             _launchSiteList.Add(launchSiteName);
-                
-                            // Need to update PSystemSetup.Instance.LaunchSites as well.
-                            foreach(FieldInfo fi in PSystemSetup.Instance.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
-                            {
-                                if(fi.FieldType.Name == "LaunchSite[]")
-                                {
-                                    LaunchSite[] sites = (LaunchSite[])fi.GetValue(PSystemSetup.Instance);
-                                    if(PSystemSetup.Instance.GetLaunchSite(launchSiteName) == null)
-                                    {
-                                        LaunchSite newSite = new LaunchSite();
-                                        newSite.launchPadName = launchSiteName + "_spawn";
-                                        newSite.name = launchSiteName;
-                                        newSite.pqsName = launchSitePqsName;
-                                        LaunchSite[] newSites = new LaunchSite[sites.Length + 1];
-                                        for(int i = 0; i < sites.Length; ++i)
-                                        {
-                                            newSites[i] = sites[i];
-                                        }
-                                        newSites[newSites.Length - 1] = newSite;
-                                        fi.SetValue(PSystemSetup.Instance, newSites);
-                                        sites = newSites;
-                                    }
-                                    break;
-                                }
-                            }
-                            // Now update the sites again.
-                            MethodInfo updateSitesMI = PSystemSetup.Instance.GetType().GetMethod("SetupLaunchSites", BindingFlags.NonPublic | BindingFlags.Instance);
-                            updateSitesMI.Invoke(PSystemSetup.Instance, null);
                         }
                     }
                 }

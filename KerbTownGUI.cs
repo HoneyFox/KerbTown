@@ -106,7 +106,7 @@ namespace Kerbtown
                 if (_currentLaunchSiteName.Trim().Length > 0 &&
                     (_currentLaunchSiteName != "LaunchPad" && _currentLaunchSiteName != "Runway"))
                 {
-                    _currentSelectedObject.MakeLaunchSite(true, _currentLaunchSiteName);
+					_currentSelectedObject.MakeLaunchSite(true, _currentLaunchSiteName, _currentSelectedObject.LaunchPadTransform);
                     _lsNameVisible = false;
                 }
                 else

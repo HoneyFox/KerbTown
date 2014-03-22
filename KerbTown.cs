@@ -147,6 +147,7 @@ namespace Kerbtown
                     float visRange = float.Parse(ins.GetValue("VisibilityRange"));
                     string celestialBodyName = ins.GetValue("CelestialBody");
                     string launchSiteName = ins.GetValue("LaunchSiteName") ?? "";
+					string launchPadTransform = ins.GetValue("LaunchPadTransform") ?? "";
 
                     //string scaleStr = ""; //ins.GetValue("Scale");
                     //Vector3 scale = ConfigNode.ParseVector3(string.IsNullOrEmpty(scaleStr) ? "1,1,1" : scaleStr);
@@ -158,7 +159,7 @@ namespace Kerbtown
                         //        visRange, modelUrl, staticUrlConfig.url, celestialBodyName, scale, "", launchSiteName));
                         _instancedList[modelUrl].Add(
                             new StaticObject(radPosition, rotAngle, radOffset, orientation,
-                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName));
+                                visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "", launchSiteName, launchPadTransform));
                     }
                     else
                     {
@@ -170,7 +171,7 @@ namespace Kerbtown
                                 //    launchSiteName)
                                 new StaticObject(radPosition, rotAngle, radOffset, orientation,
                                     visRange, modelUrl, staticUrlConfig.url, celestialBodyName, "",
-                                    launchSiteName)
+                                    launchSiteName, launchPadTransform)
                             });
                     }
                 }
@@ -222,6 +223,7 @@ namespace Kerbtown
 
             // Set the parent object to the celestial component's GameObject.
             ktGameObject.transform.parent = celestialPQS.transform;
+			Debug.Log("Setting static game object's parent to: " + ktGameObject.transform.parent.name);
 
             // Obtain all active transforms in the static game object.
             Transform[] gameObjectList = ktGameObject.GetComponentsInChildren<Transform>();
@@ -298,15 +300,57 @@ namespace Kerbtown
             // Todo: optimize
             if (stObject.LaunchSiteName != "")
             {
-                Transform launchSiteObject =
-                    ktGameObject.transform.Cast<Transform>().FirstOrDefault(t => t.name.EndsWith("_spawn"));
-                if (launchSiteObject != null)
-                {
-                    launchSiteObject.name = stObject.LaunchSiteName + "_spawn";
+                if(stObject.LaunchPadTransform == "./" || ktGameObject.transform.Find(stObject.LaunchPadTransform) != null)
+				{
+					ktGameObject.transform.name = stObject.LaunchSiteName;
+					ktGameObject.name = stObject.LaunchSiteName;
+					Debug.Log("Launch pad transform found: " + stObject.LaunchPadTransform + ", object renamed to: " + ktGameObject.name);
+
+					// Need to update PSystemSetup.Instance.LaunchSites as well.
+					foreach (FieldInfo fi in PSystemSetup.Instance.GetType().GetFields(BindingFlags.NonPublic | BindingFlags.Instance))
+					{
+						if (fi.FieldType.Name == "LaunchSite[]")
+						{
+							Debug.Log("Acquiring launch sites.");
+							PSystemSetup.LaunchSite[] sites = (PSystemSetup.LaunchSite[])fi.GetValue(PSystemSetup.Instance);
+							if (sites == null)
+								Debug.Log("Fail to acquire launch sites.");
+
+							if (PSystemSetup.Instance.GetLaunchSite(stObject.LaunchSiteName) == null)
+							{
+								PSystemSetup.LaunchSite newSite = new PSystemSetup.LaunchSite();
+								if (stObject.LaunchPadTransform == "./")
+									newSite.launchPadName = stObject.LaunchSiteName;
+								else
+									newSite.launchPadName = stObject.LaunchSiteName + "/" + stObject.LaunchPadTransform;
+								newSite.name = stObject.LaunchSiteName;
+								newSite.pqsName = stObject.CelestialBodyName;
+								PSystemSetup.LaunchSite[] newSites = new PSystemSetup.LaunchSite[sites.Length + 1];
+								for (int i = 0; i < sites.Length; ++i)
+								{
+									newSites[i] = sites[i];
+								}
+								newSites[newSites.Length - 1] = newSite;
+								fi.SetValue(PSystemSetup.Instance, newSites);
+								sites = newSites;
+							}
+							else
+							{
+								Debug.Log("Launch site " + stObject.LaunchSiteName + " already exists.");
+							}
+							break;
+						}
+					}
+					// Now update the sites again.
+					MethodInfo updateSitesMI = PSystemSetup.Instance.GetType().GetMethod("SetupLaunchSites", BindingFlags.NonPublic | BindingFlags.Instance);
+					if (updateSitesMI == null)
+						Debug.Log("Fail to find SetupLaunchSites().");
+					else
+						updateSitesMI.Invoke(PSystemSetup.Instance, null);
                 }
                 else
                 {
-                    Extensions.LogWarning("Launch Site '" + ktGameObject.name + "'does not have a spawn transform.");
+                    Extensions.LogWarning("Launch Site '" + ktGameObject.name + "'does not have the defined spawn transform.");
                 }
             }
         }
@@ -488,7 +532,9 @@ namespace Kerbtown
                     instanceNode.AddValue("Orientation", ConfigNode.WriteVector(inst.Orientation));
                     instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
                     instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
-                    instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+					instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+					instanceNode.AddValue("LaunchPadTransform", inst.LaunchPadTransform);
+
                     //instanceNode.AddValue("Scale", ConfigNode.WriteVector(inst.Scale));
 
                     modelPartRootNode.nodes.Add(instanceNode);
@@ -549,7 +595,8 @@ namespace Kerbtown
                     instanceNode.AddValue("Orientation", ConfigNode.WriteVector(inst.Orientation));
                     instanceNode.AddValue("VisibilityRange", inst.VisRange.ToString(CultureInfo.InvariantCulture));
                     instanceNode.AddValue("CelestialBody", inst.CelestialBodyName);
-                    instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+					instanceNode.AddValue("LaunchSiteName", inst.LaunchSiteName);
+					instanceNode.AddValue("LaunchPadTransform", inst.LaunchPadTransform);
 
                     instanceNode.AddValue("ModelURL", inst.ModelUrl);
                     instanceNode.AddValue("ConfigURL", inst.ConfigURL);
@@ -624,7 +671,7 @@ namespace Kerbtown
                  _currentCelestialObj.CelestialBodyComponent.bodyName == celestialName))
                 return _currentCelestialObj;
 
-            return (from PQS gameObjectInScene in FindSceneObjectsOfType(typeof (PQS))
+            return (from PQS gameObjectInScene in FindObjectsOfType(typeof (PQS))
                 where gameObjectInScene.name == celestialName
                 select new CelestialObject(gameObjectInScene.transform.parent.gameObject)).FirstOrDefault();
         }
