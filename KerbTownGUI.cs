@@ -100,7 +100,7 @@ namespace Kerbtown
         private void DrawLSNamingWindow(int windowID)
         {
             _currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 135, 22), _currentLaunchSiteName);
-			_currentLaunchPadTransform = GUI.TextField(new Rect(145, 25, 135, 22), _currentLaunchPadTransform);
+			_currentLaunchPadTransform = GUI.TextField(new Rect(155, 25, 135, 22), _currentLaunchPadTransform);
             GUI.backgroundColor = Color.green;
             if (GUI.Button(new Rect(10, 55, 80, 22), "Done"))
             {
