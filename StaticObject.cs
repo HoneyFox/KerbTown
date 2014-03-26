@@ -172,9 +172,10 @@ namespace Kerbtown
 			if (padName == "./" || StaticGameObject.transform.Find(padName) != null)
             {
                 LaunchSiteName = name;
+				LaunchPadTransform = padName;
                 return true;
             }
-
+			
             Extensions.LogError("Unable to find the launch spawning transform.");
             return false;
         }

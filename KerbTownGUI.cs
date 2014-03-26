@@ -43,6 +43,7 @@ namespace Kerbtown
         #endregion
 
         private string _currentLaunchSiteName = "";
+		private string _currentLaunchPadTransform = "";
         private bool _deletePersistence;
         private GUISkin _mySkin;
         private string _rPosition = "";
@@ -98,15 +99,15 @@ namespace Kerbtown
 
         private void DrawLSNamingWindow(int windowID)
         {
-            _currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 280, 22), _currentLaunchSiteName);
-
+            _currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 135, 22), _currentLaunchSiteName);
+			_currentLaunchPadTransform = GUI.TextField(new Rect(145, 25, 135, 22), _currentLaunchPadTransform);
             GUI.backgroundColor = Color.green;
             if (GUI.Button(new Rect(10, 55, 80, 22), "Done"))
             {
                 if (_currentLaunchSiteName.Trim().Length > 0 &&
                     (_currentLaunchSiteName != "LaunchPad" && _currentLaunchSiteName != "Runway"))
                 {
-					_currentSelectedObject.MakeLaunchSite(true, _currentLaunchSiteName, _currentSelectedObject.LaunchPadTransform);
+					_currentSelectedObject.MakeLaunchSite(true, _currentLaunchSiteName, _currentLaunchPadTransform);
                     _lsNameVisible = false;
                 }
                 else
@@ -117,6 +118,7 @@ namespace Kerbtown
             if (GUI.Button(new Rect(100, 55, 80, 22), "Cancel"))
             {
                 _currentLaunchSiteName = "";
+				_currentLaunchPadTransform = "";
                 _lsNameVisible = false;
             }
 
@@ -189,6 +191,7 @@ namespace Kerbtown
                 else
                 {
                     _currentLaunchSiteName = "";
+					_currentLaunchPadTransform = _currentSelectedObject.LaunchPadTransform;
                     _lsNameVisible = true;
                 }
             }
