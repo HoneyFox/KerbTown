@@ -191,7 +191,12 @@ namespace Kerbtown
                 else
                 {
                     _currentLaunchSiteName = "";
-					_currentLaunchPadTransform = _currentSelectedObject.LaunchPadTransform;
+					if(_currentSelectedObject.LaunchPadTransform != "")
+						_currentLaunchPadTransform = _currentSelectedObject.LaunchPadTransform;
+					else if(_staticPropertyList.ContainsKey(_currentModelUrl) && _staticPropertyList[_currentModelUrl].ContainsKey("DefaultLaunchPadTransform"))
+						_currentLaunchPadTransform = _staticPropertyList[_currentModelUrl]["DefaultLaunchPadTransform"];
+					else
+						_currentLaunchPadTransform = _currentSelectedObject.LaunchPadTransform;
                     _lsNameVisible = true;
                 }
             }

@@ -61,7 +61,7 @@ namespace Kerbtown
 
         public new void OnSphereReset()
         {
-            if (!modEnabled) return;
+			if (!modEnabled) return;
 
             base.OnSphereReset();
         }

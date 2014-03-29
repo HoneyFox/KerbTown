@@ -28,6 +28,8 @@ namespace Kerbtown
         private string _currentModelUrl = "";
         private StaticObject _currentSelectedObject;
 
+		private Dictionary<string, Dictionary<string, string>> _staticPropertyList;
+
         private Dictionary<string, List<StaticObject>> _eeInstancedList;
         private Dictionary<string, List<StaticObject>> _instancedList;
 
@@ -51,6 +53,8 @@ namespace Kerbtown
             GameEvents.onFlightReady.Add(OnFlightReadyCallback);
             GameEvents.onGameStateSaved.Add(OnSave);
             GameEvents.onGameStateCreated.Add(OnLoad);
+
+			DontDestroyOnLoad(this);
         }
 
         private void OnLoad(Game data)
@@ -95,6 +99,7 @@ namespace Kerbtown
 
         private static void DestroyInstances(Dictionary<string, List<StaticObject>> instanceDictionary)
         {
+			Extensions.LogInfo("Destoying Static Object Instances");
             foreach (StaticObject i in instanceDictionary.SelectMany(ins => ins.Value))
             {
                 DestroySoInstance(i);
@@ -105,6 +110,7 @@ namespace Kerbtown
         private void PopulateLists()
         {
             UrlDir.UrlConfig[] staticConfigs = GameDatabase.Instance.GetConfigs("STATIC");
+			_staticPropertyList = new Dictionary<string, Dictionary<string, string>>();
             _instancedList = new Dictionary<string, List<StaticObject>>();
             _modelList = new Dictionary<string, string>();
 
@@ -127,6 +133,11 @@ namespace Kerbtown
 
                 //Extensions.LogWarning("Model url: " + modelUrl);
                 //Extensions.LogWarning("Config url: " + staticUrlConfig.url);
+
+				if(_staticPropertyList.ContainsKey(modelUrl) == false)
+					_staticPropertyList[modelUrl] = new Dictionary<string,string>();
+				if(staticUrlConfig.config.HasValue("DefaultLaunchPadTransform"))
+					_staticPropertyList[modelUrl]["DefaultLaunchPadTransform"] = staticUrlConfig.config.GetValue("DefaultLaunchPadTransform");
 
                 // Skip adding the object if it is not yielding.
                 //string isYielding = staticUrlConfig.config.GetValue("isYielding");
@@ -699,8 +710,10 @@ namespace Kerbtown
         {
             try
             {
+				Extensions.LogInfo("Disabling PQSCityComponent");
                 staticObject.PQSCityComponent.modEnabled = false;
 
+				Extensions.LogInfo("Destroying PQSCityComponent LODs");
                 foreach (PQSCity.LODRange lod in staticObject.PQSCityComponent.lod)
                 {
                     lod.SetActive(false);
@@ -713,7 +726,8 @@ namespace Kerbtown
                 }
 
                 if (staticObject.ModuleList != null)
-                {
+				{
+					Extensions.LogInfo("Unloading Static Object Modules");
                     foreach (KtComponent module in staticObject.ModuleList.Where
                         (module => module.ModuleComponent.GetType() == typeof (StaticObjectModule)))
                     {
@@ -721,10 +735,12 @@ namespace Kerbtown
                     }
                 }
 
+				Extensions.LogInfo("Unparent GameObject");
                 staticObject.StaticGameObject.transform.parent = null;
 
+				Extensions.LogInfo("Destoying PQSCityComponent and GameObject");
                 Destroy(staticObject.PQSCityComponent);
-                DestroyImmediate(staticObject.StaticGameObject);
+                Destroy(staticObject.StaticGameObject);
             }
             catch (Exception ex)
             {
