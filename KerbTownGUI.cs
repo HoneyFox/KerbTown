@@ -54,6 +54,9 @@ namespace Kerbtown
         private string _xPosition = "";
         private string _yPosition = "";
         private string _zPosition = "";
+		private string _latitude = "";
+		private string _longitude = "";
+		private bool _coordsChangedByLatLon = false;
         //private string _xScale = "";
         //private string _yScale = "";
         //private string _zScale = "";
@@ -65,7 +68,7 @@ namespace Kerbtown
 
         private void OnGUI()
         {
-            if (!_mainWindowVisible)
+            if (!_mainWindowVisible || HighLogic.LoadedSceneIsFlight == false)
                 return;
 
             GUI.skin = _mySkin;
@@ -99,8 +102,20 @@ namespace Kerbtown
 
         private void DrawLSNamingWindow(int windowID)
         {
-            _currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 135, 22), _currentLaunchSiteName);
-			_currentLaunchPadTransform = GUI.TextField(new Rect(155, 25, 135, 22), _currentLaunchPadTransform);
+			bool hasDefaultLaunchPadTransform = false;
+			if (_currentSelectedObject.LaunchPadTransform != "" ||
+				(_staticPropertyList.ContainsKey(_currentModelUrl) && _staticPropertyList[_currentModelUrl].ContainsKey("DefaultLaunchPadTransform") && _staticPropertyList[_currentModelUrl]["DefaultLaunchPadTransform"] != ""))
+				hasDefaultLaunchPadTransform = true;
+
+			if (hasDefaultLaunchPadTransform)
+			{
+				_currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 280, 22), _currentLaunchSiteName);
+			}
+			else
+			{
+				_currentLaunchSiteName = GUI.TextField(new Rect(10, 25, 135, 22), _currentLaunchSiteName);
+				_currentLaunchPadTransform = GUI.TextField(new Rect(155, 25, 135, 22), _currentLaunchPadTransform);
+			}
             GUI.backgroundColor = Color.green;
             if (GUI.Button(new Rect(10, 55, 80, 22), "Done"))
             {
@@ -356,9 +371,25 @@ namespace Kerbtown
 
             #endregion
 
-            #region Scale Factor
+			#region Lat/Lon Setup
 
-            //GUI.Label(new Rect(10, 175, 100, 22), "Scale");
+			GUI.Label(new Rect(10, 175, 100, 22), "Lat/Lon");
+
+			string newLat = GUI.TextField(new Rect(100, 175, 60, 22), _latitude);
+			if(_latitude != newLat)
+				_coordsChangedByLatLon = true;
+			_latitude = newLat;
+
+			string newLon = GUI.TextField(new Rect(170, 175, 60, 22), _longitude);
+			if(_longitude != newLon)
+				_coordsChangedByLatLon = true;
+			_longitude = newLon;
+
+			#endregion
+
+			#region Scale Factor
+
+			//GUI.Label(new Rect(10, 175, 100, 22), "Scale");
             //GUI.backgroundColor = Color.red;
             //_xScale = GUI.TextField(new Rect(100, 175, 40, 22), _xScale);
             //GUI.backgroundColor = Color.green;
@@ -370,23 +401,46 @@ namespace Kerbtown
 
             #region Update
 
+			if (reorient == true)
+				_coordsChangedByLatLon = false;
+
             GUI.backgroundColor = Color.yellow;
             if (GUI.Button(new Rect(240, 150, 140, 50), "\x2190      Update      \x2191"))
             {
-                float floatVal;
-                if (float.TryParse(_xPosition, out floatVal)) _currentSelectedObject.RadPosition.x = floatVal;
-                if (float.TryParse(_zPosition, out floatVal)) _currentSelectedObject.RadPosition.z = floatVal;
-                if (float.TryParse(_yPosition, out floatVal)) _currentSelectedObject.RadPosition.y = floatVal;
-                if (float.TryParse(_rPosition, out floatVal)) _currentSelectedObject.RadOffset = floatVal;
-                if (float.TryParse(_visRange, out floatVal)) _currentSelectedObject.VisRange = floatVal;
-                //if (float.TryParse(_xScale, out floatVal))
-                //{
-                //    _currentSelectedObject.Scale.x = floatVal;
-                //    if (float.TryParse(_yScale, out floatVal)) _currentSelectedObject.Scale.y = floatVal;
-                //    if (float.TryParse(_zScale, out floatVal)) _currentSelectedObject.Scale.z = floatVal;
-                //}
+				if(_coordsChangedByLatLon == true)
+				{
+					double lat, lon;
+					if (double.TryParse(_latitude, out lat) && double.TryParse(_longitude, out lon))
+					{
+						Vector3d newRadialPosition = GetRadialPosition(lat, lon);
+						_currentSelectedObject.RadPosition = newRadialPosition;
 
-                reorient = true;
+						_currentSelectedObject.Latitude = GetLatitude(_currentSelectedObject.RadPosition);
+						_currentSelectedObject.Longitude = GetLongitude(_currentSelectedObject.RadPosition);
+
+						float floatVal; 
+						if (float.TryParse(_visRange, out floatVal)) _currentSelectedObject.VisRange = floatVal;
+
+						reorient = true;
+					}
+				}
+				else
+				{
+					float floatVal;
+					if (float.TryParse(_xPosition, out floatVal)) _currentSelectedObject.RadPosition.x = floatVal;
+					if (float.TryParse(_zPosition, out floatVal)) _currentSelectedObject.RadPosition.z = floatVal;
+					if (float.TryParse(_yPosition, out floatVal)) _currentSelectedObject.RadPosition.y = floatVal;
+					if (float.TryParse(_rPosition, out floatVal)) _currentSelectedObject.RadOffset = floatVal;
+					if (float.TryParse(_visRange, out floatVal)) _currentSelectedObject.VisRange = floatVal;
+					//if (float.TryParse(_xScale, out floatVal))
+					//{
+					//    _currentSelectedObject.Scale.x = floatVal;
+					//    if (float.TryParse(_yScale, out floatVal)) _currentSelectedObject.Scale.y = floatVal;
+					//    if (float.TryParse(_zScale, out floatVal)) _currentSelectedObject.Scale.z = floatVal;
+					//}
+
+					reorient = true;
+				}
             }
 
             #endregion
@@ -457,8 +511,14 @@ namespace Kerbtown
 
                 _visRange = _currentSelectedObject.VisRange.ToString(CultureInfo.InvariantCulture);
 
-                _currentSelectedObject.Latitude = GetLatitude(_currentSelectedObject.RadPosition);
-                _currentSelectedObject.Longitude = GetLongitude(_currentSelectedObject.RadPosition);
+				if (_coordsChangedByLatLon == false)
+				{
+					_currentSelectedObject.Latitude = GetLatitude(_currentSelectedObject.RadPosition);
+					_latitude = _currentSelectedObject.Latitude.ToString(CultureInfo.InvariantCulture);
+					_currentSelectedObject.Longitude = GetLongitude(_currentSelectedObject.RadPosition);
+					_longitude = _currentSelectedObject.Longitude.ToString(CultureInfo.InvariantCulture);
+				}
+
                 _currentSelectedObject.Reorientate();
                 //_currentSelectedObject.Rescale();
             }
@@ -540,7 +600,7 @@ namespace Kerbtown
             {
                 // Clear old vis/position/scale info.
                 //_visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
-                _visRange = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                _visRange = _xPosition = _rPosition = _yPosition = _zPosition = _latitude = _longitude = "";
 
 
                 // Set the current celestial object. (Needs to be set before GetDefaultStaticObject).
@@ -604,7 +664,7 @@ namespace Kerbtown
                     {
                         // Clear text fields.
                         //_visRange = _xScale = _yScale = _zScale = _xPosition = _rPosition = _yPosition = _zPosition = "";
-                        _visRange = _xPosition = _rPosition = _yPosition = _zPosition = "";
+                        _visRange = _xPosition = _rPosition = _yPosition = _zPosition = _latitude = _longitude = "";
 
                         if (itemMatches)
                         {

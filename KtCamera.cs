@@ -42,8 +42,10 @@ namespace Kerbtown
             }
 
             KtCamera.ActiveCameraPivot.transform.rotation = KtCamera.ActiveCameraPivot.transform.parent.rotation;
-            KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.up, _cameraX);
-            KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.right, _cameraY);
+            //KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.up, _cameraX);
+            //KtCamera.ActiveCameraPivot.transform.Rotate(KtCamera.ActiveCameraPivot.transform.right, _cameraY);
+			KtCamera.ActiveCameraPivot.transform.Rotate(Vector3.up, _cameraX);
+			KtCamera.ActiveCameraPivot.transform.Rotate(Vector3.right, _cameraY);
 
             KtCamera.ActiveFlightCamera.transform.localPosition =
                 Vector3.Lerp(
@@ -102,7 +104,7 @@ namespace Kerbtown
             ActiveFlightCamera.transform.parent = ActiveCameraPivot.transform;
 
             // Use the FlightCamera sensitivity for the speed.
-            CameraSpeed = ActiveFlightCamera.orbitSensitivity;
+            CameraSpeed = ActiveFlightCamera.orbitSensitivity * 10.0f;
 
             // Take control of the flight camera.
             ActiveFlightCamera.DeactivateUpdate();

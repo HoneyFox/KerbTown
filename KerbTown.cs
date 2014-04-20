@@ -90,6 +90,9 @@ namespace Kerbtown
 
             KtCamera.RestoreCameraParent();
 
+			// Don't do anything...
+			return;
+
             DestroyInstances(_instancedList);
 
             // Destroy Easter Eggs
@@ -658,6 +661,15 @@ namespace Kerbtown
             double latitude = Math.Asin(radialPosition.normalized.y)*57.295780181884766;
             return (!double.IsNaN(latitude) ? latitude : 0.0);
         }
+
+		private static Vector3d GetRadialPosition(double lat, double lon)
+		{
+			double x, y, z;
+			x = Math.Cos(lat / 57.295780181884766) * Math.Cos((lon - 180) / 57.295780181884766) * 100000.0;
+			y = Math.Sin(lat / 57.295780181884766) * 100000.0;
+			z = Math.Cos(lat / 57.295780181884766) * Math.Sin((lon - 180) / 57.295780181884766) * 100000.0;
+			return new Vector3d(x, y, z);
+		}
 
         private static void SetLayerRecursively(GameObject sGameObject, int newLayerNumber)
         {
